@@ -14,7 +14,7 @@ export type Order = {
   time: string;
   date: string; // race date
   year: number;
-  size: '"' extends never ? string : "A3" | "A2" | "18x24" | "24x36";
+  size: string;
   theme: PosterTheme;
   status: OrderStatus;
   orderedAt: string;
@@ -77,7 +77,7 @@ function pick<T>(arr: T[], i: number): T { return arr[i % arr.length]; }
 export const orders: Order[] = Array.from({ length: 24 }, (_, i) => {
   const [race, raceShort] = pick(races, i);
   const [name, email, location] = pick(customers, i * 3 + 1);
-  const size = pick(sizes, i * 2) as Order["size"];
+  const size = pick(sizes, i * 2);
   const themeKey = pick(themeKeys, i + 2);
   const status = statuses[i % statuses.length];
   const time = pick(times, i + 1);
