@@ -68,7 +68,7 @@ function OrderDetail() {
             <div className="p-5 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[oklch(0.72_0.16_255)] to-[oklch(0.62_0.18_295)] grid place-items-center text-sm font-semibold">
-                  {order.customer.name.split(" ").map((n) => n[0]).join("")}
+                  {order.customer.name.split(" ").map((n: string) => n[0]).join("")}
                 </div>
                 <div>
                   <div className="text-sm font-medium">{order.customer.name}</div>

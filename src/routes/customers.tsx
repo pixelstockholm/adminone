@@ -34,7 +34,7 @@ function CustomersPage() {
           <div key={c.email} className="grid grid-cols-[1.4fr_1.6fr_1fr_0.8fr_0.8fr] gap-4 px-5 py-3 items-center border-b border-border/60 last:border-0 hover:bg-accent/40 transition">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-[oklch(0.72_0.16_255)] to-[oklch(0.62_0.18_295)] grid place-items-center text-[11px] font-semibold">
-                {c.name.split(" ").map((n) => n[0]).join("")}
+                {c.name.split(" ").map((n: string) => n[0]).join("")}
               </div>
               <span className="text-sm truncate">{c.name}</span>
             </div>

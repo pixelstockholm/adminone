@@ -1,13 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutGrid, Package, Users, BarChart3, Settings, Search } from "lucide-react";
 
-const nav = [
+type NavItem = { to: "/" | "/templates" | "/customers" | "/analytics" | "/settings"; label: string; icon: typeof Package; exact?: boolean };
+const nav: NavItem[] = [
   { to: "/", label: "Orders", icon: Package, exact: true },
   { to: "/templates", label: "Templates", icon: LayoutGrid },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
-] as const;
+];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
