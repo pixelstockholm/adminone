@@ -18,8 +18,13 @@ function SettingsPage() {
         </Section>
 
         <Section title="Shopify Integration">
-          <Field label="Store" value="racepace.myshopify.com" />
-          <Field label="Webhook" value="Connected" badge />
+          <Field label="Store" value="pathorize-flow-iaw9w.myshopify.com" />
+          <Field label="Webhook topic" value="orders/create" />
+          <Field
+            label="Webhook URL"
+            value={`${typeof window !== "undefined" ? window.location.origin : ""}/api/public/webhooks/shopify/orders-create`}
+          />
+          <Field label="Signing secret" value="SHOPIFY_WEBHOOK_SECRET (saved)" badge />
         </Section>
 
         <Section title="Production">
