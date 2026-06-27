@@ -1,5 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutGrid, Package, Users, BarChart3, Settings, Search } from "lucide-react";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { LayoutGrid, Package, Users, BarChart3, Settings, Search, LogOut } from "lucide-react";
+import { lockSite } from "@/lib/gate.functions";
 
 type NavItem = { to: "/" | "/templates" | "/customers" | "/analytics" | "/settings"; label: string; icon: typeof Package; exact?: boolean };
 const nav: NavItem[] = [
