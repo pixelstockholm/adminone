@@ -4,7 +4,7 @@ import { analytics, orders, statusOrder, statusLabel } from "@/lib/mock-data";
 import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/analytics")({
-  head: () => ({ meta: [{ title: "Analytics · Pathorize Admin" }] }),
+  head: () => ({ meta: [{ title: "Analytics · Racepace Admin" }] }),
   component: AnalyticsPage,
 });
 
@@ -19,7 +19,7 @@ function AnalyticsPage() {
 
   return (
     <div className="px-8 py-7 max-w-[1400px] mx-auto">
-      <PageHeader title="Analytics" description="Performance across the Pathorize business." />
+      <PageHeader title="Analytics" description="Performance across the Racepace business." />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         <Stat label="Revenue" value={`$${analytics.revenue.toLocaleString()}`} change={analytics.revenueChange} />

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings · Pathorize Admin" }] }),
+  head: () => ({ meta: [{ title: "Settings · Racepace Admin" }] }),
   component: SettingsPage,
 });
 
@@ -13,12 +13,12 @@ function SettingsPage() {
 
       <div className="space-y-5 mt-6">
         <Section title="Workspace">
-          <Field label="Workspace name" value="Pathorize" />
-          <Field label="Contact email" value="orders@pathorize.com" />
+          <Field label="Workspace name" value="Racepace" />
+          <Field label="Contact email" value="orders@racepace.com" />
         </Section>
 
         <Section title="Shopify Integration">
-          <Field label="Store" value="pathorize.myshopify.com" />
+          <Field label="Store" value="racepace.myshopify.com" />
           <Field label="Webhook" value="Connected" badge />
         </Section>
 

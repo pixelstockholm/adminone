@@ -9,8 +9,8 @@ import { PageHeader } from "@/components/page-header";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Orders · Pathorize Admin" },
-      { name: "description", content: "Manage Pathorize marathon poster orders through production." },
+      { title: "Orders · Racepace Admin" },
+      { name: "description", content: "Manage Racepace marathon poster orders through production." },
     ],
   }),
   component: OrdersPage,
