@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createHmac } from "crypto";
 
 // TEMP test endpoint — sends a signed fake Shopify order to the real webhook.
-export const Route = createFileRoute("/api/public/_test-shopify-webhook")({
+export const Route = createFileRoute("/api/public/test-shopify-webhook")({
   server: {
     handlers: {
       GET: async ({ request }) => {
