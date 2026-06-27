@@ -1,7 +1,8 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowLeft, Check, RefreshCw, Send, Mail, MapPin, Calendar, Palette, Ruler } from "lucide-react";
-import { getOrder } from "@/lib/mock-data";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Check, RefreshCw, Send, Mail, MapPin, Calendar, Palette, Ruler, Loader2 } from "lucide-react";
+import { getOrderById, saveOrderNotes, updateOrderStatus } from "@/lib/orders.functions";
 import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -9,20 +10,48 @@ export const Route = createFileRoute("/orders/$orderId")({
   head: ({ params }) => ({
     meta: [{ title: `Order ${params.orderId} · Racepace Admin` }],
   }),
-  loader: ({ params }) => {
-    const order = getOrder(params.orderId);
-    if (!order) throw notFound();
-    return { order };
-  },
   component: OrderDetail,
   notFoundComponent: () => (
     <div className="p-10 text-sm text-muted-foreground">Order not found.</div>
   ),
+  errorComponent: ({ error }) => (
+    <div className="p-10 text-sm text-muted-foreground">Failed to load: {error.message}</div>
+  ),
 });
 
 function OrderDetail() {
-  const { order } = Route.useLoaderData();
-  const [notes, setNotes] = useState(order.notes ?? "");
+  const { orderId } = Route.useParams();
+  const qc = useQueryClient();
+  const { data: order, isLoading } = useQuery({
+    queryKey: ["order", orderId],
+    queryFn: () => getOrderById({ data: { id: orderId } }),
+  });
+
+  const [notes, setNotes] = useState("");
+  useEffect(() => { if (order) setNotes(order.notes ?? ""); }, [order]);
+
+  const statusMut = useMutation({
+    mutationFn: (status: "approved" | "production") =>
+      updateOrderStatus({ data: { id: orderId, status } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+
+  const notesMut = useMutation({
+    mutationFn: () => saveOrderNotes({ data: { id: orderId, notes } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["order", orderId] }),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="p-10 flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading order…
+      </div>
+    );
+  }
+  if (!order) throw notFound();
 
   return (
     <div className="px-8 py-7 max-w-[1400px] mx-auto">
@@ -42,24 +71,30 @@ function OrderDetail() {
           <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface hover:bg-accent text-xs font-medium transition">
             <RefreshCw className="h-3.5 w-3.5" /> Regenerate
           </button>
-          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface hover:bg-accent text-xs font-medium transition">
+          <button
+            onClick={() => statusMut.mutate("approved")}
+            disabled={statusMut.isPending}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface hover:bg-accent text-xs font-medium transition disabled:opacity-50"
+          >
             <Check className="h-3.5 w-3.5" /> Approve
           </button>
-          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-foreground text-background hover:opacity-90 text-xs font-medium transition">
+          <button
+            onClick={() => statusMut.mutate("production")}
+            disabled={statusMut.isPending}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-foreground text-background hover:opacity-90 text-xs font-medium transition disabled:opacity-50"
+          >
             <Send className="h-3.5 w-3.5" /> Send to Production
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-6 mt-6">
-        {/* Poster preview */}
         <div className="surface-card p-8 flex items-center justify-center bg-gradient-to-br from-surface to-card">
           <div className="w-full max-w-md shadow-2xl shadow-black/40 rounded-md">
             <OrderPoster order={order} size="xl" />
           </div>
         </div>
 
-        {/* Right column */}
         <div className="space-y-6">
           <div className="surface-card">
             <div className="px-5 py-3.5 border-b border-border text-xs uppercase tracking-widest text-muted-foreground font-medium">
@@ -99,7 +134,13 @@ function OrderDetail() {
           <div className="surface-card">
             <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
               <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Notes</span>
-              <button className="text-xs text-muted-foreground hover:text-foreground">Save</button>
+              <button
+                onClick={() => notesMut.mutate()}
+                disabled={notesMut.isPending}
+                className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                {notesMut.isPending ? "Saving…" : "Save"}
+              </button>
             </div>
             <textarea
               value={notes}
