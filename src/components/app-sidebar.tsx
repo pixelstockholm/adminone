@@ -59,10 +59,17 @@ export function AppSidebar() {
       <div className="p-3 border-t border-sidebar-border">
         <div className="flex items-center gap-2.5 px-1">
           <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[oklch(0.72_0.16_255)] to-[oklch(0.62_0.18_295)]" />
-          <div className="flex flex-col leading-tight min-w-0">
+          <div className="flex flex-col leading-tight min-w-0 flex-1">
             <span className="text-xs font-medium text-sidebar-accent-foreground truncate">Alex Morgan</span>
             <span className="text-[10px] text-muted-foreground truncate">alex@racepace.com</span>
           </div>
+          <button
+            onClick={handleLock}
+            title="Lock dashboard"
+            className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </aside>
