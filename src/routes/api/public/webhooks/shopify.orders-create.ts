@@ -1,0 +1,123 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { createHmac, timingSafeEqual } from "crypto";
+
+// Receives Shopify `orders/create` webhook → inserts into `orders`.
+// Configure in Shopify Admin → Settings → Notifications → Webhooks
+// URL:     <site>/api/public/webhooks/shopify/orders-create
+// Format:  JSON
+// Secret:  SHOPIFY_WEBHOOK_SECRET
+
+type ShopifyLineItemProperty = { name: string; value: string };
+type ShopifyLineItem = {
+  title?: string;
+  variant_title?: string;
+  price?: string;
+  properties?: ShopifyLineItemProperty[];
+};
+type ShopifyAddress = { city?: string; country?: string; province?: string };
+type ShopifyOrder = {
+  id: number;
+  name?: string;
+  order_number?: number;
+  email?: string;
+  total_price?: string;
+  created_at?: string;
+  customer?: { first_name?: string; last_name?: string; email?: string };
+  shipping_address?: ShopifyAddress;
+  line_items?: ShopifyLineItem[];
+};
+
+function prop(props: ShopifyLineItemProperty[] | undefined, ...names: string[]) {
+  if (!props) return undefined;
+  const lower = names.map((n) => n.toLowerCase());
+  return props.find((p) => lower.includes((p.name || "").toLowerCase()))?.value;
+}
+
+function shortRace(race: string) {
+  return race
+    .replace(/marathon|half|race|run/gi, "")
+    .trim()
+    .slice(0, 12)
+    .toUpperCase() || race.slice(0, 6).toUpperCase();
+}
+
+const THEME_KEYS = ["midnight", "ember", "forest", "cream", "noir", "sky"];
+function normalizeTheme(v: string | undefined) {
+  const k = (v || "").toLowerCase().trim();
+  return THEME_KEYS.includes(k) ? k : "midnight";
+}
+
+export const Route = createFileRoute("/api/public/webhooks/shopify/orders-create")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        const secret = process.env.SHOPIFY_WEBHOOK_SECRET;
+        if (!secret) return new Response("Server misconfigured", { status: 500 });
+
+        const rawBody = await request.text();
+        const headerHmac = request.headers.get("x-shopify-hmac-sha256") || "";
+        const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("base64");
+
+        const a = Buffer.from(headerHmac);
+        const b = Buffer.from(expected);
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          return new Response("Invalid signature", { status: 401 });
+        }
+
+        let order: ShopifyOrder;
+        try {
+          order = JSON.parse(rawBody);
+        } catch {
+          return new Response("Invalid JSON", { status: 400 });
+        }
+
+        const firstItem = order.line_items?.[0];
+        const props = firstItem?.properties;
+
+        const customerName =
+          [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(" ") ||
+          prop(props, "Name", "Runner") ||
+          "Unknown runner";
+
+        const race = prop(props, "Race", "Event") || firstItem?.title || "Unknown race";
+        const time = prop(props, "Time", "Finish time") || "—";
+        const raceDate = prop(props, "Date", "Race date") || (order.created_at || "").slice(0, 10);
+        const yearMatch = raceDate.match(/(\d{4})/);
+        const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+        const size = prop(props, "Size", "Poster size") || firstItem?.variant_title || "A3";
+        const theme = normalizeTheme(prop(props, "Color", "Color theme", "Theme"));
+        const location = [order.shipping_address?.city, order.shipping_address?.country]
+          .filter(Boolean)
+          .join(", ") || "—";
+        const price = parseFloat(order.total_price || firstItem?.price || "0") || 0;
+        const number = order.name || (order.order_number ? `#${order.order_number}` : `#${order.id}`);
+
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+        const { error } = await supabaseAdmin.from("orders").insert({
+          number,
+          customer_name: customerName,
+          customer_email: order.customer?.email || order.email || "",
+          customer_location: location,
+          race,
+          race_short: shortRace(race),
+          time,
+          race_date: raceDate,
+          year,
+          size,
+          theme_key: theme,
+          status: "pending",
+          price,
+          ordered_at: order.created_at || new Date().toISOString(),
+        });
+
+        if (error) {
+          console.error("shopify webhook insert failed", error);
+          return new Response("Insert failed", { status: 500 });
+        }
+
+        return new Response("ok", { status: 200 });
+      },
+    },
+  },
+});
