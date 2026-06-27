@@ -14,7 +14,125 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      order_notes: {
+        Row: {
+          author: string
+          body: string
+          created_at: string
+          id: string
+          order_id: string
+        }
+        Insert: {
+          author: string
+          body: string
+          created_at?: string
+          id?: string
+          order_id: string
+        }
+        Update: {
+          author?: string
+          body?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          customer_email: string
+          customer_location: string | null
+          customer_name: string
+          id: string
+          notes: string | null
+          number: string
+          ordered_at: string
+          price: number
+          race: string
+          race_date: string
+          race_short: string
+          size: string
+          status: Database["public"]["Enums"]["order_status"]
+          theme_key: string
+          time: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          customer_email: string
+          customer_location?: string | null
+          customer_name: string
+          id?: string
+          notes?: string | null
+          number: string
+          ordered_at?: string
+          price: number
+          race: string
+          race_date: string
+          race_short: string
+          size: string
+          status?: Database["public"]["Enums"]["order_status"]
+          theme_key: string
+          time: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          customer_email?: string
+          customer_location?: string | null
+          customer_name?: string
+          id?: string
+          notes?: string | null
+          number?: string
+          ordered_at?: string
+          price?: number
+          race?: string
+          race_date?: string
+          race_short?: string
+          size?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          theme_key?: string
+          time?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      templates: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          theme_key: string
+          uses: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          theme_key: string
+          uses?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          theme_key?: string
+          uses?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +141,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      order_status:
+        | "pending"
+        | "in_review"
+        | "approved"
+        | "production"
+        | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +273,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      order_status: [
+        "pending",
+        "in_review",
+        "approved",
+        "production",
+        "completed",
+      ],
+    },
   },
 } as const
