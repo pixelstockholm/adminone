@@ -5,7 +5,7 @@ import { PosterPreview } from "@/components/poster-preview";
 import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/templates")({
-  head: () => ({ meta: [{ title: "Templates · Pathorize Admin" }] }),
+  head: () => ({ meta: [{ title: "Templates · Racepace Admin" }] }),
   component: TemplatesPage,
 });
 

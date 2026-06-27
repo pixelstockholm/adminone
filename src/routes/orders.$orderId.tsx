@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 
 export const Route = createFileRoute("/orders/$orderId")({
   head: ({ params }) => ({
-    meta: [{ title: `Order ${params.orderId} · Pathorize Admin` }],
+    meta: [{ title: `Order ${params.orderId} · Racepace Admin` }],
   }),
   loader: ({ params }) => {
     const order = getOrder(params.orderId);

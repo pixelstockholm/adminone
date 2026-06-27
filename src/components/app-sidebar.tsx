@@ -18,7 +18,7 @@ export function AppSidebar() {
       <div className="px-5 h-14 flex items-center gap-2.5 border-b border-sidebar-border">
         <div className="h-7 w-7 rounded-md bg-foreground text-background grid place-items-center font-black text-sm tracking-tight">P</div>
         <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold text-sidebar-accent-foreground">Pathorize</span>
+          <span className="text-sm font-semibold text-sidebar-accent-foreground">Racepace</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Admin</span>
         </div>
       </div>
@@ -59,7 +59,7 @@ export function AppSidebar() {
           <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[oklch(0.72_0.16_255)] to-[oklch(0.62_0.18_295)]" />
           <div className="flex flex-col leading-tight min-w-0">
             <span className="text-xs font-medium text-sidebar-accent-foreground truncate">Alex Morgan</span>
-            <span className="text-[10px] text-muted-foreground truncate">alex@pathorize.com</span>
+            <span className="text-[10px] text-muted-foreground truncate">alex@racepace.com</span>
           </div>
         </div>
       </div>
