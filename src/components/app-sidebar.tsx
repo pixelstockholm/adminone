@@ -14,6 +14,16 @@ const nav: NavItem[] = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const router = useRouter();
+  const lock = useServerFn(lockSite);
+
+  async function handleLock() {
+    await lock();
+    await router.invalidate();
+    await router.navigate({ to: "/unlock" });
+  }
+
+
 
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
