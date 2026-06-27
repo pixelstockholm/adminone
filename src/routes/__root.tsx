@@ -64,12 +64,18 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    if (location.pathname === "/unlock") return;
+    const { unlocked } = await checkUnlocked();
+    if (!unlocked) throw redirect({ to: "/unlock" });
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Racepace Admin" },
       { name: "description", content: "Production dashboard for Racepace personalized marathon posters." },
+      { name: "robots", content: "noindex,nofollow" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -100,6 +106,16 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const matches = useMatches();
+  const isUnlock = matches.some((m) => m.routeId === "/unlock");
+
+  if (isUnlock) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
