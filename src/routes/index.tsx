@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Plus, Filter, ArrowUpRight } from "lucide-react";
-import { orders, statusOrder, statusLabel, type OrderStatus } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Filter, ArrowUpRight, Loader2 } from "lucide-react";
+import { statusOrder, statusLabel, type OrderStatus } from "@/lib/mock-data";
+import { listOrders } from "@/lib/orders.functions";
 import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
@@ -18,12 +20,16 @@ export const Route = createFileRoute("/")({
 
 function OrdersPage() {
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["orders"],
+    queryFn: () => listOrders(),
+  });
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: orders.length };
     for (const s of statusOrder) c[s] = orders.filter((o) => o.status === s).length;
     return c;
-  }, []);
+  }, [orders]);
 
   const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
@@ -44,7 +50,6 @@ function OrdersPage() {
         }
       />
 
-      {/* Stat strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border rounded-xl overflow-hidden mt-6 border border-border">
         {(["all", ...statusOrder] as const).map((s) => (
           <button
@@ -62,7 +67,6 @@ function OrdersPage() {
         ))}
       </div>
 
-      {/* Table */}
       <div className="surface-card mt-6 overflow-hidden">
         <div className="grid grid-cols-[64px_1.5fr_1.4fr_0.8fr_0.7fr_0.9fr_0.8fr_28px] gap-4 px-5 py-3 border-b border-border text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
           <div>Preview</div>
@@ -74,6 +78,14 @@ function OrdersPage() {
           <div className="text-right">Price</div>
           <div />
         </div>
+        {isLoading && (
+          <div className="flex items-center justify-center py-16 text-muted-foreground text-sm gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading orders…
+          </div>
+        )}
+        {!isLoading && filtered.length === 0 && (
+          <div className="py-16 text-center text-sm text-muted-foreground">No orders found.</div>
+        )}
         {filtered.map((o) => (
           <Link
             key={o.id}
