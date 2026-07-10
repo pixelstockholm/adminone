@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { orders } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
+import { listOrders } from "@/lib/orders.functions";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({ meta: [{ title: "Customers · Racepace Admin" }] }),
@@ -8,7 +9,14 @@ export const Route = createFileRoute("/customers")({
 });
 
 function CustomersPage() {
-  const map = new Map<string, { name: string; email: string; location: string; orders: number; spent: number; last: string }>();
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["orders"],
+    queryFn: () => listOrders(),
+  });
+  const map = new Map<
+    string,
+    { name: string; email: string; location: string; orders: number; spent: number; last: string }
+  >();
   for (const o of orders) {
     const k = o.customer.email;
     const cur = map.get(k);
@@ -28,13 +36,33 @@ function CustomersPage() {
 
       <div className="surface-card mt-6 overflow-hidden">
         <div className="grid grid-cols-[1.4fr_1.6fr_1fr_0.8fr_0.8fr] gap-4 px-5 py-3 border-b border-border text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          <div>Name</div><div>Email</div><div>Location</div><div className="text-right">Orders</div><div className="text-right">Spent</div>
+          <div>Name</div>
+          <div>Email</div>
+          <div>Location</div>
+          <div className="text-right">Orders</div>
+          <div className="text-right">Spent</div>
         </div>
+        {isLoading && (
+          <div className="px-5 py-12 text-center text-sm text-muted-foreground">
+            Loading customers…
+          </div>
+        )}
+        {!isLoading && customers.length === 0 && (
+          <div className="px-5 py-12 text-center text-sm text-muted-foreground">
+            No customers yet.
+          </div>
+        )}
         {customers.map((c) => (
-          <div key={c.email} className="grid grid-cols-[1.4fr_1.6fr_1fr_0.8fr_0.8fr] gap-4 px-5 py-3 items-center border-b border-border/60 last:border-0 hover:bg-accent/40 transition">
+          <div
+            key={c.email}
+            className="grid grid-cols-[1.4fr_1.6fr_1fr_0.8fr_0.8fr] gap-4 px-5 py-3 items-center border-b border-border/60 last:border-0 hover:bg-accent/40 transition"
+          >
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-[oklch(0.72_0.16_255)] to-[oklch(0.62_0.18_295)] grid place-items-center text-[11px] font-semibold">
-                {c.name.split(" ").map((n: string) => n[0]).join("")}
+                {c.name
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .join("")}
               </div>
               <span className="text-sm truncate">{c.name}</span>
             </div>

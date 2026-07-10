@@ -96,6 +96,17 @@ export const listOrders = createServerFn({ method: "GET" }).handler(async () => 
   return (data as DbOrder[]).map(toOrder);
 });
 
+export const getAdminHealth = createServerFn({ method: "GET" }).handler(async () => ({
+  supabaseUrl: Boolean(process.env.SUPABASE_URL),
+  supabaseServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  sitePassword: Boolean(process.env.SITE_PASSWORD),
+  sessionSecret: Boolean(process.env.SESSION_SECRET),
+  shopifyWebhookSecret: Boolean(process.env.SHOPIFY_WEBHOOK_SECRET),
+  printProviderEndpoint: Boolean(process.env.PRINT_PROVIDER_ENDPOINT),
+  printProviderApiKey: Boolean(process.env.PRINT_PROVIDER_API_KEY),
+  printProviderName: process.env.PRINT_PROVIDER_NAME || "Not configured",
+}));
+
 export const getOrderById = createServerFn({ method: "GET" })
   .inputValidator((input) => z.object({ id: z.string() }).parse(input))
   .handler(async ({ data }) => {
@@ -112,10 +123,12 @@ export const getOrderById = createServerFn({ method: "GET" })
 
 export const updateOrderStatus = createServerFn({ method: "POST" })
   .inputValidator((input) =>
-    z.object({
-      id: z.string(),
-      status: z.enum(["pending", "in_review", "approved", "production", "completed"]),
-    }).parse(input),
+    z
+      .object({
+        id: z.string(),
+        status: z.enum(["pending", "in_review", "approved", "production", "completed"]),
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -132,7 +145,9 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const endpoint = process.env.PRINT_PROVIDER_ENDPOINT;
     if (!endpoint) {
-      throw new Error("Missing PRINT_PROVIDER_ENDPOINT. Add your print-provider/admin endpoint before sending orders.");
+      throw new Error(
+        "Missing PRINT_PROVIDER_ENDPOINT. Add your print-provider/admin endpoint before sending orders.",
+      );
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -167,7 +182,9 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
     }
 
     if (!response.ok) {
-      throw new Error(`Print provider rejected order (${response.status}): ${text || response.statusText}`);
+      throw new Error(
+        `Print provider rejected order (${response.status}): ${text || response.statusText}`,
+      );
     }
 
     const { error: updateError } = await supabaseAdmin

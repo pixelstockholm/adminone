@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
+import { getAdminHealth } from "@/lib/orders.functions";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings · Racepace Admin" }] }),
@@ -7,14 +9,28 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
+  const { data: health } = useQuery({
+    queryKey: ["admin-health"],
+    queryFn: () => getAdminHealth(),
+  });
+
   return (
     <div className="px-8 py-7 max-w-[900px] mx-auto">
-      <PageHeader title="Settings" description="Manage workspace, integrations, and production options." />
+      <PageHeader
+        title="Settings"
+        description="Manage workspace, integrations, and production options."
+      />
 
       <div className="space-y-5 mt-6">
         <Section title="Workspace">
           <Field label="Workspace name" value="Racepace" />
-          <Field label="Contact email" value="orders@racepace.com" />
+          <Field label="Contact email" value="hello@racepace.co" />
+          <StatusField label="Access code" ready={health?.sitePassword} envKey="SITE_PASSWORD" />
+          <StatusField
+            label="Session encryption"
+            ready={health?.sessionSecret}
+            envKey="SESSION_SECRET"
+          />
         </Section>
 
         <Section title="Shopify Integration">
@@ -24,18 +40,37 @@ function SettingsPage() {
             label="Webhook URL"
             value={`${typeof window !== "undefined" ? window.location.origin : ""}/api/public/webhooks/shopify/orders-create`}
           />
-          <Field label="Signing secret" value="SHOPIFY_WEBHOOK_SECRET (saved)" badge />
+          <StatusField
+            label="Signing secret"
+            ready={health?.shopifyWebhookSecret}
+            envKey="SHOPIFY_WEBHOOK_SECRET"
+          />
+          <StatusField label="Supabase URL" ready={health?.supabaseUrl} envKey="SUPABASE_URL" />
+          <StatusField
+            label="Supabase service role"
+            ready={health?.supabaseServiceRole}
+            envKey="SUPABASE_SERVICE_ROLE_KEY"
+          />
         </Section>
 
         <Section title="Production">
           <Toggle label="Auto-approve generated previews" enabled={false} />
-          <Toggle label="Send to print provider on approval" enabled />
-          <Toggle label="Notify customer on production start" enabled />
+          <Toggle label="Send to print provider on approval" enabled={false} />
+          <Toggle label="Notify customer on production start" enabled={false} />
         </Section>
 
         <Section title="Print Provider">
-          <Field label="Provider" value="Prodigi" />
-          <Field label="Default paper" value="Matte 250gsm" />
+          <Field label="Provider" value={health?.printProviderName ?? "Not configured"} />
+          <StatusField
+            label="Production endpoint"
+            ready={health?.printProviderEndpoint}
+            envKey="PRINT_PROVIDER_ENDPOINT"
+          />
+          <StatusField
+            label="Provider API key"
+            ready={health?.printProviderApiKey}
+            envKey="PRINT_PROVIDER_API_KEY"
+          />
         </Section>
       </div>
     </div>
@@ -68,12 +103,38 @@ function Field({ label, value, badge }: { label: string; value: string; badge?: 
   );
 }
 
+function StatusField({ label, ready, envKey }: { label: string; ready?: boolean; envKey: string }) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3.5 gap-4">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <span
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-medium ${
+          ready
+            ? "border-[oklch(0.72_0.16_155)]/20 bg-[oklch(0.72_0.16_155)]/10 text-[oklch(0.82_0.13_155)]"
+            : "border-[oklch(0.78_0.15_75)]/20 bg-[oklch(0.78_0.15_75)]/10 text-[oklch(0.85_0.12_75)]"
+        }`}
+      >
+        <span
+          className={`h-1.5 w-1.5 rounded-full ${
+            ready ? "bg-[oklch(0.72_0.16_155)]" : "bg-[oklch(0.78_0.15_75)]"
+          }`}
+        />
+        {ready ? "Configured" : envKey}
+      </span>
+    </div>
+  );
+}
+
 function Toggle({ label, enabled }: { label: string; enabled: boolean }) {
   return (
     <div className="flex items-center justify-between px-5 py-3.5">
       <div className="text-sm">{label}</div>
-      <div className={`relative h-5 w-9 rounded-full transition ${enabled ? "bg-primary" : "bg-muted"}`}>
-        <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition ${enabled ? "left-[18px]" : "left-0.5"}`} />
+      <div
+        className={`relative h-5 w-9 rounded-full transition ${enabled ? "bg-primary" : "bg-muted"}`}
+      >
+        <div
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition ${enabled ? "left-[18px]" : "left-0.5"}`}
+        />
       </div>
     </div>
   );

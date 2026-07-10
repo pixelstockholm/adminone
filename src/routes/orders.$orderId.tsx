@@ -1,8 +1,23 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, RefreshCw, Send, Mail, MapPin, Calendar, Palette, Ruler, Loader2 } from "lucide-react";
-import { getOrderById, saveOrderNotes, sendOrderToProduction, updateOrderStatus } from "@/lib/orders.functions";
+import {
+  ArrowLeft,
+  Check,
+  Send,
+  Mail,
+  MapPin,
+  Calendar,
+  Palette,
+  Ruler,
+  Loader2,
+} from "lucide-react";
+import {
+  getOrderById,
+  saveOrderNotes,
+  sendOrderToProduction,
+  updateOrderStatus,
+} from "@/lib/orders.functions";
 import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
 import { toast } from "sonner";
@@ -29,7 +44,9 @@ function OrderDetail() {
   });
 
   const [notes, setNotes] = useState("");
-  useEffect(() => { if (order) setNotes(order.notes ?? ""); }, [order]);
+  useEffect(() => {
+    if (order) setNotes(order.notes ?? "");
+  }, [order]);
 
   const statusMut = useMutation({
     mutationFn: (status: "approved" | "production") =>
@@ -49,7 +66,8 @@ function OrderDetail() {
     },
     onError: (error) => {
       toast.error("Could not send to production", {
-        description: error instanceof Error ? error.message : "Check the print provider integration.",
+        description:
+          error instanceof Error ? error.message : "Check the print provider integration.",
       });
     },
   });
@@ -70,22 +88,26 @@ function OrderDetail() {
 
   return (
     <div className="px-8 py-7 max-w-[1400px] mx-auto">
-      <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition">
+      <Link
+        to="/"
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
+      >
         <ArrowLeft className="h-3.5 w-3.5" /> Back to orders
       </Link>
 
       <div className="flex items-start justify-between mt-4 pb-6 border-b border-border/70">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-[22px] font-semibold tracking-tight">{order.race} {order.year}</h1>
+            <h1 className="text-[22px] font-semibold tracking-tight">
+              {order.race} {order.year}
+            </h1>
             <StatusBadge status={order.status} />
           </div>
-          <div className="text-xs text-muted-foreground font-mono mt-1">{order.number} · Ordered {order.orderedAt}</div>
+          <div className="text-xs text-muted-foreground font-mono mt-1">
+            {order.number} · Ordered {order.orderedAt}
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface hover:bg-accent text-xs font-medium transition">
-            <RefreshCw className="h-3.5 w-3.5" /> Regenerate
-          </button>
           <button
             onClick={() => statusMut.mutate("approved")}
             disabled={statusMut.isPending}
@@ -123,7 +145,10 @@ function OrderDetail() {
             <div className="p-5 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[oklch(0.72_0.16_255)] to-[oklch(0.62_0.18_295)] grid place-items-center text-sm font-semibold">
-                  {order.customer.name.split(" ").map((n: string) => n[0]).join("")}
+                  {order.customer.name
+                    .split(" ")
+                    .map((n: string) => n[0])
+                    .join("")}
                 </div>
                 <div>
                   <div className="text-sm font-medium">{order.customer.name}</div>
@@ -150,17 +175,27 @@ function OrderDetail() {
               <Row icon={Palette} label="Theme" value={order.theme.name} />
               <Row icon={Ruler} label="Price" value={`$${order.price}`} />
               {typeof order.routeVerified === "boolean" && (
-                <Row icon={Check} label="Route" value={order.routeVerified ? "Verified" : "Unverified"} />
+                <Row
+                  icon={Check}
+                  label="Route"
+                  value={order.routeVerified ? "Verified" : "Unverified"}
+                />
               )}
               {order.productionSentAt && (
-                <Row icon={Send} label="Sent to print" value={order.productionSentAt.slice(0, 10)} />
+                <Row
+                  icon={Send}
+                  label="Sent to print"
+                  value={order.productionSentAt.slice(0, 10)}
+                />
               )}
             </div>
           </div>
 
           <div className="surface-card">
             <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Notes</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
+                Notes
+              </span>
               <button
                 onClick={() => notesMut.mutate()}
                 disabled={notesMut.isPending}
@@ -182,7 +217,17 @@ function OrderDetail() {
   );
 }
 
-function Row({ icon: Icon, label, value, mono }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; mono?: boolean }) {
+function Row({
+  icon: Icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div className="flex items-start gap-2.5">
       <Icon className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />

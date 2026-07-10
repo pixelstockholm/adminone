@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Filter, ArrowUpRight, Loader2 } from "lucide-react";
+import { ArrowUpRight, Loader2 } from "lucide-react";
 import { statusOrder, statusLabel, type OrderStatus } from "@/lib/mock-data";
 import { listOrders } from "@/lib/orders.functions";
 import { OrderPoster } from "@/components/poster-preview";
@@ -12,7 +12,10 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Orders · Racepace Admin" },
-      { name: "description", content: "Manage Racepace marathon poster orders through production." },
+      {
+        name: "description",
+        content: "Manage Racepace marathon poster orders through production.",
+      },
     ],
   }),
   component: OrdersPage,
@@ -38,16 +41,6 @@ function OrdersPage() {
       <PageHeader
         title="Orders"
         description="Manage poster orders through the production workflow."
-        actions={
-          <>
-            <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface hover:bg-accent text-xs font-medium transition">
-              <Filter className="h-3.5 w-3.5" /> Filter
-            </button>
-            <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-foreground text-background hover:opacity-90 text-xs font-medium transition">
-              <Plus className="h-3.5 w-3.5" /> New order
-            </button>
-          </>
-        }
       />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border rounded-xl overflow-hidden mt-6 border border-border">
@@ -97,7 +90,9 @@ function OrdersPage() {
               <OrderPoster order={o} size="sm" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium truncate">{o.race} {o.year}</div>
+              <div className="text-sm font-medium truncate">
+                {o.race} {o.year}
+              </div>
               <div className="text-xs text-muted-foreground font-mono">{o.number}</div>
             </div>
             <div className="min-w-0">
@@ -106,7 +101,9 @@ function OrdersPage() {
             </div>
             <div className="text-sm font-mono tabular-nums">{o.time}</div>
             <div className="text-sm text-muted-foreground">{o.size}</div>
-            <div><StatusBadge status={o.status} /></div>
+            <div>
+              <StatusBadge status={o.status} />
+            </div>
             <div className="text-sm text-right tabular-nums font-medium">${o.price}</div>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition" />
           </Link>
