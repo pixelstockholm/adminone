@@ -9,6 +9,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 
 type ShopifyLineItemProperty = { name: string; value: string };
 type ShopifyLineItem = {
+  id?: number;
   title?: string;
   variant_title?: string;
   price?: string;
@@ -31,6 +32,10 @@ function prop(props: ShopifyLineItemProperty[] | undefined, ...names: string[]) 
   if (!props) return undefined;
   const lower = names.map((n) => n.toLowerCase());
   return props.find((p) => lower.includes((p.name || "").toLowerCase()))?.value;
+}
+
+function truthy(v: string | undefined) {
+  return ["true", "1", "yes"].includes((v || "").toLowerCase().trim());
 }
 
 function shortRace(race: string) {
@@ -85,22 +90,38 @@ export const Route = createFileRoute("/api/public/webhooks/shopify/orders-create
         const yearMatch = raceDate.match(/(\d{4})/);
         const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
         const size = prop(props, "Size", "Poster size") || firstItem?.variant_title || "A3";
-        const theme = normalizeTheme(prop(props, "Color", "Color theme", "Theme"));
+        const theme = normalizeTheme(prop(props, "_poster_theme", "Color", "Color theme", "Theme"));
         const location = [order.shipping_address?.city, order.shipping_address?.country]
           .filter(Boolean)
           .join(", ") || "—";
         const price = parseFloat(order.total_price || firstItem?.price || "0") || 0;
         const number = order.name || (order.order_number ? `#${order.order_number}` : `#${order.id}`);
+        const raceId = prop(props, "_race_id");
+        const routeVerified = truthy(prop(props, "_route_verified"));
+        const source = prop(props, "_source");
+        const designStatus = prop(props, "_design_status");
+        const fulfillmentStatus = prop(props, "_fulfillment_status");
+        const metaNotes = [
+          raceId ? `Race ID: ${raceId}` : null,
+          `Route verified: ${routeVerified ? "yes" : "no"}`,
+          designStatus ? `Design status: ${designStatus}` : null,
+          fulfillmentStatus ? `Fulfillment status: ${fulfillmentStatus}` : null,
+          source ? `Source: ${source}` : null,
+        ].filter(Boolean).join("\n");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const { error } = await supabaseAdmin.from("orders").insert({
+        const { error } = await supabaseAdmin.from("orders").upsert({
           number,
+          shopify_order_id: String(order.id),
+          shopify_line_item_id: firstItem?.id ? String(firstItem.id) : null,
           customer_name: customerName,
           customer_email: order.customer?.email || order.email || "",
           customer_location: location,
           race,
           race_short: shortRace(race),
+          race_id: raceId || null,
+          route_verified: routeVerified,
           time,
           race_date: raceDate,
           year,
@@ -108,7 +129,10 @@ export const Route = createFileRoute("/api/public/webhooks/shopify/orders-create
           theme_key: theme,
           status: "pending",
           price,
+          notes: metaNotes || null,
           ordered_at: order.created_at || new Date().toISOString(),
+        }, {
+          onConflict: "number",
         });
 
         if (error) {

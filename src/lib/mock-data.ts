@@ -20,6 +20,10 @@ export type Order = {
   orderedAt: string;
   price: number;
   notes?: string;
+  raceId?: string;
+  routeVerified?: boolean;
+  productionProvider?: string;
+  productionSentAt?: string;
 };
 
 export type PosterTheme = {

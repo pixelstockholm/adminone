@@ -2,9 +2,10 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, RefreshCw, Send, Mail, MapPin, Calendar, Palette, Ruler, Loader2 } from "lucide-react";
-import { getOrderById, saveOrderNotes, updateOrderStatus } from "@/lib/orders.functions";
+import { getOrderById, saveOrderNotes, sendOrderToProduction, updateOrderStatus } from "@/lib/orders.functions";
 import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/orders/$orderId")({
   head: ({ params }) => ({
@@ -36,6 +37,20 @@ function OrderDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+
+  const productionMut = useMutation({
+    mutationFn: () => sendOrderToProduction({ data: { id: orderId } }),
+    onSuccess: () => {
+      toast.success("Order sent to production");
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (error) => {
+      toast.error("Could not send to production", {
+        description: error instanceof Error ? error.message : "Check the print provider integration.",
+      });
     },
   });
 
@@ -79,11 +94,16 @@ function OrderDetail() {
             <Check className="h-3.5 w-3.5" /> Approve
           </button>
           <button
-            onClick={() => statusMut.mutate("production")}
-            disabled={statusMut.isPending}
+            onClick={() => productionMut.mutate()}
+            disabled={productionMut.isPending}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-foreground text-background hover:opacity-90 text-xs font-medium transition disabled:opacity-50"
           >
-            <Send className="h-3.5 w-3.5" /> Send to Production
+            {productionMut.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            Send to Production
           </button>
         </div>
       </div>
@@ -123,11 +143,18 @@ function OrderDetail() {
             </div>
             <div className="p-5 grid grid-cols-2 gap-x-4 gap-y-3">
               <Row icon={Calendar} label="Race" value={order.race} />
+              {order.raceId && <Row icon={Calendar} label="Race ID" value={order.raceId} mono />}
               <Row icon={Calendar} label="Date" value={order.date} />
               <Row icon={Ruler} label="Finish time" value={order.time} mono />
               <Row icon={Ruler} label="Size" value={order.size} />
               <Row icon={Palette} label="Theme" value={order.theme.name} />
               <Row icon={Ruler} label="Price" value={`$${order.price}`} />
+              {typeof order.routeVerified === "boolean" && (
+                <Row icon={Check} label="Route" value={order.routeVerified ? "Verified" : "Unverified"} />
+              )}
+              {order.productionSentAt && (
+                <Row icon={Send} label="Sent to print" value={order.productionSentAt.slice(0, 10)} />
+              )}
             </div>
           </div>
 
