@@ -56,17 +56,9 @@ export type Database = {
           number: string
           ordered_at: string
           price: number
-          production_payload: Json | null
-          production_provider: string | null
-          production_response: Json | null
-          production_sent_at: string | null
           race: string
           race_date: string
-          race_id: string | null
           race_short: string
-          route_verified: boolean
-          shopify_line_item_id: string | null
-          shopify_order_id: string | null
           size: string
           status: Database["public"]["Enums"]["order_status"]
           theme_key: string
@@ -83,17 +75,9 @@ export type Database = {
           number: string
           ordered_at?: string
           price: number
-          production_payload?: Json | null
-          production_provider?: string | null
-          production_response?: Json | null
-          production_sent_at?: string | null
           race: string
           race_date: string
-          race_id?: string | null
           race_short: string
-          route_verified?: boolean
-          shopify_line_item_id?: string | null
-          shopify_order_id?: string | null
           size: string
           status?: Database["public"]["Enums"]["order_status"]
           theme_key: string
@@ -110,17 +94,9 @@ export type Database = {
           number?: string
           ordered_at?: string
           price?: number
-          production_payload?: Json | null
-          production_provider?: string | null
-          production_response?: Json | null
-          production_sent_at?: string | null
           race?: string
           race_date?: string
-          race_id?: string | null
           race_short?: string
-          route_verified?: boolean
-          shopify_line_item_id?: string | null
-          shopify_order_id?: string | null
           size?: string
           status?: Database["public"]["Enums"]["order_status"]
           theme_key?: string
