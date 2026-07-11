@@ -193,13 +193,13 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
         status: "production",
         production_provider: process.env.PRINT_PROVIDER_NAME || "custom",
         production_payload: payload,
-        production_response: providerResponse,
+        production_response: providerResponse as import("@/integrations/supabase/types").Json,
         production_sent_at: new Date().toISOString(),
       })
       .eq("id", data.id);
 
     if (updateError) throw new Error(updateError.message);
-    return { ok: true, providerResponse };
+    return { ok: true as const, providerResponse: JSON.stringify(providerResponse) };
   });
 
 export const saveOrderNotes = createServerFn({ method: "POST" })
