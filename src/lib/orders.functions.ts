@@ -192,8 +192,8 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
       .update({
         status: "production",
         production_provider: process.env.PRINT_PROVIDER_NAME || "custom",
-        production_payload: payload as never,
-        production_response: providerResponse as never,
+        production_payload: payload,
+        production_response: providerResponse as import("@/integrations/supabase/types").Json,
         production_sent_at: new Date().toISOString(),
       })
       .eq("id", data.id);
