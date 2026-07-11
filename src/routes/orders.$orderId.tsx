@@ -49,7 +49,7 @@ function OrderDetail() {
   }, [order]);
 
   const statusMut = useMutation({
-    mutationFn: (status: "approved" | "production") =>
+    mutationFn: (status: "in_review" | "approved" | "completed") =>
       updateOrderStatus({ data: { id: orderId, status } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["order", orderId] });
@@ -109,15 +109,21 @@ function OrderDetail() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => statusMut.mutate("approved")}
-            disabled={statusMut.isPending}
+            onClick={() => statusMut.mutate(order.status === "pending" ? "in_review" : "approved")}
+            disabled={statusMut.isPending || !["pending", "in_review"].includes(order.status)}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface hover:bg-accent text-xs font-medium transition disabled:opacity-50"
           >
-            <Check className="h-3.5 w-3.5" /> Approve
+            <Check className="h-3.5 w-3.5" />
+            {order.status === "pending" ? "Start Review" : "Approve"}
           </button>
           <button
             onClick={() => productionMut.mutate()}
-            disabled={productionMut.isPending}
+            disabled={
+              productionMut.isPending ||
+              order.status !== "approved" ||
+              order.routeVerified !== true ||
+              Boolean(order.productionSentAt)
+            }
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-foreground text-background hover:opacity-90 text-xs font-medium transition disabled:opacity-50"
           >
             {productionMut.isPending ? (
