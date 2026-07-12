@@ -11,9 +11,11 @@ import {
   Palette,
   Ruler,
   Loader2,
+  Download,
 } from "lucide-react";
 import {
   getOrderById,
+  getOrderPrintExport,
   saveOrderNotes,
   sendOrderToProduction,
   updateOrderStatus,
@@ -72,6 +74,29 @@ function OrderDetail() {
     },
   });
 
+  const exportMut = useMutation({
+    mutationFn: () => getOrderPrintExport({ data: { id: orderId } }),
+    onSuccess: (file) => {
+      const blob = new Blob([file.svg], { type: file.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Print file exported", {
+        description: `${file.size.label} · ${file.dpi} DPI · ${file.size.widthPx}×${file.size.heightPx}px`,
+      });
+    },
+    onError: (error) => {
+      toast.error("Could not export print file", {
+        description: error instanceof Error ? error.message : "Check the order data.",
+      });
+    },
+  });
+
   const notesMut = useMutation({
     mutationFn: () => saveOrderNotes({ data: { id: orderId, notes } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["order", orderId] }),
@@ -108,6 +133,18 @@ function OrderDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportMut.mutate()}
+            disabled={exportMut.isPending}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface hover:bg-accent text-xs font-medium transition disabled:opacity-50"
+          >
+            {exportMut.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            Export Print SVG
+          </button>
           <button
             onClick={() => statusMut.mutate("approved")}
             disabled={statusMut.isPending}

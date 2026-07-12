@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { themes, type Order, type OrderStatus } from "./mock-data";
+import { buildPrintExport, buildPrintPayloadWithExport } from "./print-export";
 
 type DbOrder = {
   id: string;
@@ -83,6 +84,7 @@ function buildPrintPayload(row: DbOrder) {
       themeKey: row.theme_key,
       price: Number(row.price),
     },
+    production: buildPrintPayloadWithExport(row).printFile,
   };
 }
 
@@ -119,6 +121,20 @@ export const getOrderById = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!row) return null;
     return toOrder(row as DbOrder);
+  });
+
+export const getOrderPrintExport = createServerFn({ method: "GET" })
+  .inputValidator((input) => z.object({ id: z.string() }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("orders")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("Order not found.");
+    return buildPrintExport(row as DbOrder);
   });
 
 export const updateOrderStatus = createServerFn({ method: "POST" })
