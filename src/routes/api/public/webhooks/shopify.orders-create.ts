@@ -15,7 +15,20 @@ type ShopifyLineItem = {
   price?: string;
   properties?: ShopifyLineItemProperty[];
 };
-type ShopifyAddress = { city?: string; country?: string; province?: string };
+type ShopifyAddress = {
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  country?: string;
+  country_code?: string;
+  province?: string;
+  province_code?: string;
+  zip?: string;
+  phone?: string;
+};
 type ShopifyOrder = {
   id: number;
   name?: string;
@@ -94,6 +107,12 @@ export const Route = createFileRoute("/api/public/webhooks/shopify/orders-create
         const location = [order.shipping_address?.city, order.shipping_address?.country]
           .filter(Boolean)
           .join(", ") || "—";
+        const shippingName =
+          order.shipping_address?.name ||
+          [order.shipping_address?.first_name, order.shipping_address?.last_name]
+            .filter(Boolean)
+            .join(" ") ||
+          customerName;
         const price = parseFloat(order.total_price || firstItem?.price || "0") || 0;
         const number = order.name || (order.order_number ? `#${order.order_number}` : `#${order.id}`);
         const raceId = prop(props, "_race_id");
@@ -118,6 +137,15 @@ export const Route = createFileRoute("/api/public/webhooks/shopify/orders-create
           customer_name: customerName,
           customer_email: order.customer?.email || order.email || "",
           customer_location: location,
+          shipping_name: shippingName,
+          shipping_address1: order.shipping_address?.address1 || null,
+          shipping_address2: order.shipping_address?.address2 || null,
+          shipping_city: order.shipping_address?.city || null,
+          shipping_province: order.shipping_address?.province_code || order.shipping_address?.province || null,
+          shipping_postal_code: order.shipping_address?.zip || null,
+          shipping_country_code: order.shipping_address?.country_code || null,
+          shipping_country: order.shipping_address?.country || null,
+          shipping_phone: order.shipping_address?.phone || null,
           race,
           race_short: shortRace(race),
           race_id: raceId || null,

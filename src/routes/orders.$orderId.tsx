@@ -110,6 +110,21 @@ function OrderDetail() {
     );
   }
   if (!order) throw notFound();
+  const shippingLines = [
+    order.shipping?.name,
+    order.shipping?.address1,
+    order.shipping?.address2,
+    [order.shipping?.postalCode, order.shipping?.city].filter(Boolean).join(" "),
+    [order.shipping?.province, order.shipping?.countryCode || order.shipping?.country]
+      .filter(Boolean)
+      .join(", "),
+  ].filter(Boolean);
+  const hasPrintAddress = Boolean(
+    order.shipping?.address1 &&
+      order.shipping?.city &&
+      order.shipping?.postalCode &&
+      order.shipping?.countryCode,
+  );
 
   return (
     <div className="px-8 py-7 max-w-[1400px] mx-auto">
@@ -195,6 +210,11 @@ function OrderDetail() {
               <div className="grid grid-cols-1 gap-2 pt-2 border-t border-border/60">
                 <Row icon={Mail} label="Email" value={order.customer.email} />
                 <Row icon={MapPin} label="Ship to" value={order.customer.location} />
+                <Row
+                  icon={MapPin}
+                  label={hasPrintAddress ? "Print address" : "Print address missing"}
+                  value={shippingLines.length ? shippingLines.join(" · ") : "Missing full shipping address"}
+                />
               </div>
             </div>
           </div>

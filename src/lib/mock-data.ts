@@ -9,6 +9,17 @@ export type Order = {
   id: string;
   number: string;
   customer: { name: string; email: string; location: string };
+  shipping?: {
+    name: string;
+    address1?: string;
+    address2?: string;
+    city?: string;
+    province?: string;
+    postalCode?: string;
+    countryCode?: string;
+    country?: string;
+    phone?: string;
+  };
   race: string;
   raceShort: string;
   time: string;

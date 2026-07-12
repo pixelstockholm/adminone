@@ -9,6 +9,15 @@ type DbOrder = {
   customer_name: string;
   customer_email: string;
   customer_location: string | null;
+  shipping_name?: string | null;
+  shipping_address1?: string | null;
+  shipping_address2?: string | null;
+  shipping_city?: string | null;
+  shipping_province?: string | null;
+  shipping_postal_code?: string | null;
+  shipping_country_code?: string | null;
+  shipping_country?: string | null;
+  shipping_phone?: string | null;
   race: string;
   race_short: string;
   time: string;
@@ -40,6 +49,7 @@ function toOrder(row: DbOrder): Order {
       email: row.customer_email,
       location: row.customer_location ?? "",
     },
+    shipping: getShippingAddress(row),
     race: row.race,
     raceShort: row.race_short,
     time: row.time,
@@ -72,6 +82,7 @@ function buildPrintPayload(row: DbOrder) {
       email: row.customer_email,
       location: row.customer_location,
     },
+    shipping: getShippingAddress(row),
     poster: {
       race: row.race,
       raceShort: row.race_short,
@@ -85,6 +96,147 @@ function buildPrintPayload(row: DbOrder) {
       price: Number(row.price),
     },
     production: buildPrintPayloadWithExport(row).printFile,
+  };
+}
+
+function getShippingAddress(row: DbOrder) {
+  return {
+    name: row.shipping_name || row.customer_name,
+    email: row.customer_email,
+    phone: row.shipping_phone || undefined,
+    address1: row.shipping_address1 || undefined,
+    address2: row.shipping_address2 || undefined,
+    city: row.shipping_city || undefined,
+    province: row.shipping_province || undefined,
+    postalCode: row.shipping_postal_code || undefined,
+    countryCode: row.shipping_country_code || undefined,
+    country: row.shipping_country || undefined,
+  };
+}
+
+function requiredShippingAddress(row: DbOrder) {
+  const shipping = getShippingAddress(row);
+  const missing = [
+    ["shipping_address1", shipping.address1],
+    ["shipping_city", shipping.city],
+    ["shipping_postal_code", shipping.postalCode],
+    ["shipping_country_code", shipping.countryCode],
+  ].filter(([, value]) => !value);
+
+  if (missing.length) {
+    throw new Error(
+      `Missing shipping fields for print provider: ${missing.map(([key]) => key).join(", ")}.`,
+    );
+  }
+
+  return shipping as typeof shipping & {
+    address1: string;
+    city: string;
+    postalCode: string;
+    countryCode: string;
+  };
+}
+
+function getPublicPrintFileUrl(row: DbOrder) {
+  const baseUrl = process.env.PRINT_FILE_BASE_URL || process.env.PUBLIC_ADMIN_BASE_URL;
+  const token = process.env.PRINT_FILE_ACCESS_TOKEN;
+
+  if (!baseUrl) {
+    throw new Error("Missing PRINT_FILE_BASE_URL. Add your deployed adminone URL.");
+  }
+  if (!token) {
+    throw new Error("Missing PRINT_FILE_ACCESS_TOKEN. Add a random token for secure print-file URLs.");
+  }
+
+  const base = baseUrl.replace(/\/$/, "");
+  return `${base}/api/public/print-files/${row.id}?token=${encodeURIComponent(token)}`;
+}
+
+function resolveProdigiSku(size: string) {
+  const normalized = size.toLowerCase().replace(/\s/g, "");
+  const key = normalized.includes("70x100")
+    ? "PRODIGI_SKU_70X100"
+    : normalized.includes("50x70")
+      ? "PRODIGI_SKU_50X70"
+      : "PRODIGI_SKU_30X40";
+  const sku = process.env[key];
+  if (!sku) {
+    throw new Error(`Missing ${key}. Choose the Prodigi Enhanced Matte Art Paper SKU for this size.`);
+  }
+  return sku;
+}
+
+function buildProdigiPayload(row: DbOrder) {
+  const shipping = requiredShippingAddress(row);
+  const printFileUrl = getPublicPrintFileUrl(row);
+
+  return {
+    shippingMethod: process.env.PRODIGI_SHIPPING_METHOD || "standard",
+    merchantReference: row.number,
+    recipient: {
+      name: shipping.name,
+      email: shipping.email,
+      phoneNumber: shipping.phone,
+      address: {
+        line1: shipping.address1,
+        line2: shipping.address2 || null,
+        postalOrZipCode: shipping.postalCode,
+        countryCode: shipping.countryCode,
+        townOrCity: shipping.city,
+        stateOrCounty: shipping.province || null,
+      },
+    },
+    items: [
+      {
+        merchantReference: `${row.number}-${row.shopify_line_item_id || row.id}`,
+        sku: resolveProdigiSku(row.size),
+        copies: 1,
+        sizing: "fillPrintArea",
+        assets: [
+          {
+            printArea: "default",
+            url: printFileUrl,
+          },
+        ],
+        metadata: {
+          race: row.race,
+          raceId: row.race_id,
+          finishTime: row.time,
+          runnerName: row.customer_name,
+          size: row.size,
+        },
+      },
+    ],
+    metadata: {
+      racepaceOrderId: row.id,
+      shopifyOrderId: row.shopify_order_id,
+      routeVerified: row.route_verified,
+    },
+  };
+}
+
+function buildProductionRequest(row: DbOrder) {
+  const provider = (process.env.PRINT_PROVIDER_NAME || "custom").toLowerCase();
+  if (provider === "prodigi") {
+    return {
+      provider,
+      payload: buildProdigiPayload(row),
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": process.env.PRINT_PROVIDER_API_KEY || "",
+      },
+    };
+  }
+
+  return {
+    provider,
+    payload: buildPrintPayload(row),
+    headers: {
+      "Content-Type": "application/json",
+      ...(process.env.PRINT_PROVIDER_API_KEY
+        ? { Authorization: `Bearer ${process.env.PRINT_PROVIDER_API_KEY}` }
+        : {}),
+    },
   };
 }
 
@@ -107,6 +259,11 @@ export const getAdminHealth = createServerFn({ method: "GET" }).handler(async ()
   printProviderEndpoint: Boolean(process.env.PRINT_PROVIDER_ENDPOINT),
   printProviderApiKey: Boolean(process.env.PRINT_PROVIDER_API_KEY),
   printProviderName: process.env.PRINT_PROVIDER_NAME || "Not configured",
+  printFileBaseUrl: Boolean(process.env.PRINT_FILE_BASE_URL || process.env.PUBLIC_ADMIN_BASE_URL),
+  printFileAccessToken: Boolean(process.env.PRINT_FILE_ACCESS_TOKEN),
+  prodigiSku30x40: Boolean(process.env.PRODIGI_SKU_30X40),
+  prodigiSku50x70: Boolean(process.env.PRODIGI_SKU_50X70),
+  prodigiSku70x100: Boolean(process.env.PRODIGI_SKU_70X100),
 }));
 
 export const getOrderById = createServerFn({ method: "GET" })
@@ -177,16 +334,15 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
     if (!row) throw new Error("Order not found.");
 
     const dbOrder = row as DbOrder;
-    const payload = buildPrintPayload(dbOrder);
+    const productionRequest = buildProductionRequest(dbOrder);
+    if (!productionRequest.headers["X-API-Key"] && productionRequest.provider === "prodigi") {
+      throw new Error("Missing PRINT_PROVIDER_API_KEY. Add your Prodigi API key.");
+    }
+
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(process.env.PRINT_PROVIDER_API_KEY
-          ? { Authorization: `Bearer ${process.env.PRINT_PROVIDER_API_KEY}` }
-          : {}),
-      },
-      body: JSON.stringify(payload),
+      headers: productionRequest.headers,
+      body: JSON.stringify(productionRequest.payload),
     });
 
     const text = await response.text();
@@ -207,8 +363,8 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
       .from("orders")
       .update({
         status: "production",
-        production_provider: process.env.PRINT_PROVIDER_NAME || "custom",
-        production_payload: payload,
+        production_provider: productionRequest.provider,
+        production_payload: productionRequest.payload,
         production_response: providerResponse as import("@/integrations/supabase/types").Json,
         production_sent_at: new Date().toISOString(),
       })

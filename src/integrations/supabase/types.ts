@@ -65,6 +65,15 @@ export type Database = {
           race_id: string | null
           race_short: string
           route_verified: boolean
+          shipping_address1: string | null
+          shipping_address2: string | null
+          shipping_city: string | null
+          shipping_country: string | null
+          shipping_country_code: string | null
+          shipping_name: string | null
+          shipping_phone: string | null
+          shipping_postal_code: string | null
+          shipping_province: string | null
           shopify_line_item_id: string | null
           shopify_order_id: string | null
           size: string
@@ -92,6 +101,15 @@ export type Database = {
           race_id?: string | null
           race_short: string
           route_verified?: boolean
+          shipping_address1?: string | null
+          shipping_address2?: string | null
+          shipping_city?: string | null
+          shipping_country?: string | null
+          shipping_country_code?: string | null
+          shipping_name?: string | null
+          shipping_phone?: string | null
+          shipping_postal_code?: string | null
+          shipping_province?: string | null
           shopify_line_item_id?: string | null
           shopify_order_id?: string | null
           size: string
@@ -119,6 +137,15 @@ export type Database = {
           race_id?: string | null
           race_short?: string
           route_verified?: boolean
+          shipping_address1?: string | null
+          shipping_address2?: string | null
+          shipping_city?: string | null
+          shipping_country?: string | null
+          shipping_country_code?: string | null
+          shipping_name?: string | null
+          shipping_phone?: string | null
+          shipping_postal_code?: string | null
+          shipping_province?: string | null
           shopify_line_item_id?: string | null
           shopify_order_id?: string | null
           size?: string

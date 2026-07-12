@@ -71,6 +71,31 @@ function SettingsPage() {
             ready={health?.printProviderApiKey}
             envKey="PRINT_PROVIDER_API_KEY"
           />
+          <StatusField
+            label="Public print-file URL"
+            ready={health?.printFileBaseUrl}
+            envKey="PRINT_FILE_BASE_URL"
+          />
+          <StatusField
+            label="Print-file access token"
+            ready={health?.printFileAccessToken}
+            envKey="PRINT_FILE_ACCESS_TOKEN"
+          />
+          <StatusField
+            label="Prodigi 30x40 SKU"
+            ready={health?.prodigiSku30x40}
+            envKey="PRODIGI_SKU_30X40"
+          />
+          <StatusField
+            label="Prodigi 50x70 SKU"
+            ready={health?.prodigiSku50x70}
+            envKey="PRODIGI_SKU_50X70"
+          />
+          <StatusField
+            label="Prodigi 70x100 SKU"
+            ready={health?.prodigiSku70x100}
+            envKey="PRODIGI_SKU_70X100"
+          />
         </Section>
       </div>
     </div>

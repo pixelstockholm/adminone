@@ -166,6 +166,242 @@ export function buildPrintPayloadWithExport(order: PrintOrder) {
   };
 }
 
+export async function renderPrintPdf(order: PrintOrder) {
+  const printFile = buildPrintExport(order);
+  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+  const raceId = order.race_id || slugFromRace(order.race_short || order.race);
+  const route = findRoute(raceId);
+  const palette = CITY_PALETTES[raceId] || CITY_PALETTES.berlin;
+  const city = route?.city || order.race_short || order.race;
+  const country = route?.country || "";
+  const routePath = route?.svg_path || "";
+  const coords = COORDS[raceId];
+  const neighborhoods = NEIGHBORHOODS[raceId] || [];
+  const widthPt = cmToPt(printFile.size.widthCm);
+  const heightPt = cmToPt(printFile.size.heightCm);
+  const u = widthPt / 100;
+
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(`Racepace ${city} ${order.year}`);
+  pdf.setAuthor("Racepace");
+  pdf.setSubject(`Personalized ${city} marathon print`);
+
+  const page = pdf.addPage([widthPt, heightPt]);
+  const serif = await pdf.embedFont(StandardFonts.TimesRoman);
+  const serifBold = await pdf.embedFont(StandardFonts.TimesRomanBold);
+  const serifItalic = await pdf.embedFont(StandardFonts.TimesRomanItalic);
+  const sans = await pdf.embedFont(StandardFonts.Helvetica);
+  const sansBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const paper = hexRgb(palette.paper);
+  const ink = hexRgb(palette.ink);
+  const muted = hexRgb(palette.muted);
+  const line = hexRgb(palette.line);
+
+  page.drawRectangle({ x: 0, y: 0, width: widthPt, height: heightPt, color: rgb(...paper) });
+  drawTextFromTop(page, "RACEPACE EDITION", widthPt * 0.06, heightPt * 0.052, {
+    font: sansBold,
+    size: 1.6 * u,
+    color: rgb(...muted),
+  });
+  drawTextFromTop(page, `EDITION NO ${editionNo(raceId, order.year)}`, widthPt * 0.94, heightPt * 0.052, {
+    font: sansBold,
+    size: 1.6 * u,
+    color: rgb(...muted),
+    align: "right",
+  });
+  drawTextFromTop(page, city.toUpperCase(), widthPt / 2, heightPt * 0.165, {
+    font: serifBold,
+    size: 12.7 * u,
+    color: rgb(...ink),
+    align: "center",
+  });
+  drawTextFromTop(page, "The Marathon", widthPt / 2, heightPt * 0.205, {
+    font: serifItalic,
+    size: 3.2 * u,
+    color: rgb(...ink),
+    align: "center",
+  });
+  drawTextFromTop(page, String(order.year), widthPt / 2, heightPt * 0.238, {
+    font: sans,
+    size: 2.4 * u,
+    color: rgb(...muted),
+    align: "center",
+  });
+
+  const leftX = widthPt * 0.065;
+  neighborhoods.forEach((n, i) => {
+    drawTextFromTop(page, n.toUpperCase(), leftX, heightPt * 0.335 + i * 2.85 * u, {
+      font: sansBold,
+      size: 1.65 * u,
+      color: rgb(...muted),
+    });
+  });
+
+  if (coords) {
+    drawTextFromTop(page, coords.lat, leftX, heightPt * 0.655, {
+      font: sans,
+      size: 1.45 * u,
+      color: rgb(...muted),
+    });
+    drawTextFromTop(page, coords.lon, leftX, heightPt * 0.676, {
+      font: sans,
+      size: 1.45 * u,
+      color: rgb(...muted),
+    });
+  }
+
+  drawRoutePath(page, routePath, {
+    pageHeight: heightPt,
+    x: widthPt * 0.22,
+    yFromTop: heightPt * 0.31,
+    width: widthPt * 0.7,
+    height: heightPt * 0.35,
+    color: rgb(...line),
+    strokeWidth: 0.42 * u,
+  });
+
+  const dividerY = heightPt - heightPt * 0.705;
+  page.drawLine({
+    start: { x: widthPt * 0.06, y: dividerY },
+    end: { x: widthPt * 0.94, y: dividerY },
+    thickness: Math.max(0.55, u * 0.12),
+    color: rgb(...ink),
+    opacity: 0.36,
+  });
+
+  drawTextFromTop(page, order.time || "00:00:00", widthPt / 2, heightPt * 0.775, {
+    font: serifBold,
+    size: 7.6 * u,
+    color: rgb(...muted),
+    align: "center",
+  });
+  drawTextFromTop(page, (order.customer_name || "Your Name").toUpperCase(), widthPt / 2, heightPt * 0.825, {
+    font: sansBold,
+    size: 2.65 * u,
+    color: rgb(...ink),
+    align: "center",
+  });
+  drawTextFromTop(
+    page,
+    `${formatDate(order.race_date)}${country ? ` · ${country.toUpperCase()}` : ""}`,
+    widthPt / 2,
+    heightPt * 0.868,
+    {
+      font: sans,
+      size: 1.75 * u,
+      color: rgb(...muted),
+      align: "center",
+    },
+  );
+
+  const pdfBytes = await pdf.save();
+
+  return {
+    ...printFile,
+    fileName: printFile.fileName.replace(/\.svg$/i, ".pdf"),
+    mimeType: "application/pdf",
+    pdf: pdfBytes,
+  };
+}
+
+type PdfPage = Awaited<ReturnType<typeof import("pdf-lib").PDFDocument.create>> extends infer _T
+  ? import("pdf-lib").PDFPage
+  : never;
+
+function cmToPt(cm: number) {
+  return (cm / 2.54) * 72;
+}
+
+function hexRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const value = parseInt(clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean, 16);
+  return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
+}
+
+function drawTextFromTop(
+  page: PdfPage,
+  text: string,
+  x: number,
+  yFromTop: number,
+  options: {
+    font: import("pdf-lib").PDFFont;
+    size: number;
+    color: import("pdf-lib").RGB;
+    align?: "left" | "center" | "right";
+  },
+) {
+  const width = options.font.widthOfTextAtSize(text, options.size);
+  const adjustedX =
+    options.align === "center" ? x - width / 2 : options.align === "right" ? x - width : x;
+  page.drawText(text, {
+    x: adjustedX,
+    y: page.getHeight() - yFromTop - options.size,
+    size: options.size,
+    font: options.font,
+    color: options.color,
+  });
+}
+
+function drawRoutePath(
+  page: PdfPage,
+  routePath: string,
+  options: {
+    pageHeight: number;
+    x: number;
+    yFromTop: number;
+    width: number;
+    height: number;
+    color: import("pdf-lib").RGB;
+    strokeWidth: number;
+  },
+) {
+  if (!routePath) return;
+  const routeBox = getRouteBox(routePath);
+  const [vbX, vbY, vbW, vbH] = routeBox.vb.split(" ").map(Number);
+  const scale = Math.min(options.width / vbW, options.height / vbH);
+  const xPad = (options.width - vbW * scale) / 2;
+  const yPad = (options.height - vbH * scale) / 2;
+  const transformed = transformRoutePath(routePath, (x, y) => ({
+    x: options.x + xPad + (x - vbX) * scale,
+    y: options.pageHeight - options.yFromTop - yPad - (y - vbY) * scale,
+  }));
+  page.drawSvgPath(transformed, {
+    borderColor: options.color,
+    borderWidth: options.strokeWidth,
+  });
+
+  const start = transformPoint(routeBox.startX, routeBox.startY);
+  const end = transformPoint(routeBox.endX, routeBox.endY);
+  page.drawCircle({ x: start.x, y: start.y, size: options.strokeWidth * 1.7, borderColor: options.color, borderWidth: options.strokeWidth * 0.65 });
+  page.drawCircle({ x: end.x, y: end.y, size: options.strokeWidth * 1.9, color: options.color });
+
+  function transformPoint(x: number, y: number) {
+    return {
+      x: options.x + xPad + (x - vbX) * scale,
+      y: options.pageHeight - options.yFromTop - yPad - (y - vbY) * scale,
+    };
+  }
+}
+
+function transformRoutePath(routePath: string, transform: (x: number, y: number) => { x: number; y: number }) {
+  const parts = routePath.match(/[ML]|-?\d+(?:\.\d+)?/g);
+  if (!parts) return routePath;
+  const output: string[] = [];
+  for (let i = 0; i < parts.length; ) {
+    const command = parts[i++];
+    if (command !== "M" && command !== "L") continue;
+    const x = Number(parts[i++]);
+    const y = Number(parts[i++]);
+    const point = transform(x, y);
+    output.push(command, trim(point.x), trim(point.y));
+  }
+  return output.join(" ");
+}
+
+function trim(value: number) {
+  return Number(value.toFixed(3)).toString();
+}
+
 function renderPosterSvg({
   size,
   raceId,
