@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { Loader2, Lock } from "lucide-react";
-import { checkUnlocked, unlockSite } from "@/lib/gate.functions";
+import { checkUnlocked, checkUnlockToken, unlockSite } from "@/lib/gate.functions";
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
@@ -14,6 +14,14 @@ export const Route = createFileRoute("/unlock")({
   beforeLoad: async () => {
     const { unlocked } = await checkUnlocked();
     if (unlocked) throw redirect({ to: "/" });
+    if (typeof window !== "undefined") {
+      const token = window.localStorage.getItem("racepace-gate-token");
+      if (token) {
+        const fallback = await checkUnlockToken({ data: { token } });
+        if (fallback.unlocked) throw redirect({ to: "/" });
+        window.localStorage.removeItem("racepace-gate-token");
+      }
+    }
   },
   component: UnlockPage,
 });
