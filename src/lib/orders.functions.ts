@@ -44,6 +44,7 @@ function toOrder(row: DbOrder): Order {
   return {
     id: row.id,
     number: row.number,
+    shopifyOrderId: row.shopify_order_id ?? undefined,
     customer: {
       name: row.customer_name,
       email: row.customer_email,
@@ -242,10 +243,16 @@ function buildProductionRequest(row: DbOrder) {
 
 export const listOrders = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("orders")
     .select("*")
     .order("ordered_at", { ascending: false });
+
+  if (process.env.SHOW_DEMO_ORDERS !== "true") {
+    query = query.not("shopify_order_id", "is", null);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data as DbOrder[]).map(toOrder);
 });
@@ -334,6 +341,10 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
     if (!row) throw new Error("Order not found.");
 
     const dbOrder = row as DbOrder;
+    if (!dbOrder.shopify_order_id) {
+      throw new Error("This is not a real Shopify order. Send a Shopify test order first.");
+    }
+
     const productionRequest = buildProductionRequest(dbOrder);
     if (!productionRequest.headers["X-API-Key"] && productionRequest.provider === "prodigi") {
       throw new Error("Missing PRINT_PROVIDER_API_KEY. Add your Prodigi API key.");

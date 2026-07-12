@@ -125,6 +125,13 @@ function OrderDetail() {
       order.shipping?.postalCode &&
       order.shipping?.countryCode,
   );
+  const isRealShopifyOrder = Boolean(order.shopifyOrderId);
+  const canSendToProduction = isRealShopifyOrder && hasPrintAddress;
+  const productionBlocker = !isRealShopifyOrder
+    ? "This is a demo/imported order. Send a Shopify test order first."
+    : !hasPrintAddress
+      ? "Missing full shipping address from Shopify checkout."
+      : null;
 
   return (
     <div className="px-8 py-7 max-w-[1400px] mx-auto">
@@ -169,7 +176,8 @@ function OrderDetail() {
           </button>
           <button
             onClick={() => productionMut.mutate()}
-            disabled={productionMut.isPending}
+            disabled={productionMut.isPending || !canSendToProduction}
+            title={productionBlocker ?? "Send order to print provider"}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-foreground text-background hover:opacity-90 text-xs font-medium transition disabled:opacity-50"
           >
             {productionMut.isPending ? (
@@ -177,10 +185,16 @@ function OrderDetail() {
             ) : (
               <Send className="h-3.5 w-3.5" />
             )}
-            Send to Production
+            {canSendToProduction ? "Send to Production" : "Production Locked"}
           </button>
         </div>
       </div>
+
+      {productionBlocker && (
+        <div className="mt-5 rounded-lg border border-[oklch(0.78_0.15_75)]/25 bg-[oklch(0.78_0.15_75)]/10 px-4 py-3 text-sm text-[oklch(0.86_0.11_75)]">
+          <span className="font-medium">Production locked:</span> {productionBlocker}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-6 mt-6">
         <div className="surface-card p-8 flex items-center justify-center bg-gradient-to-br from-surface to-card">

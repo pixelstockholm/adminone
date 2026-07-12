@@ -8,6 +8,7 @@ export type OrderStatus =
 export type Order = {
   id: string;
   number: string;
+  shopifyOrderId?: string;
   customer: { name: string; email: string; location: string };
   shipping?: {
     name: string;

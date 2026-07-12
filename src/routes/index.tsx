@@ -77,7 +77,13 @@ function OrdersPage() {
           </div>
         )}
         {!isLoading && filtered.length === 0 && (
-          <div className="py-16 text-center text-sm text-muted-foreground">No orders found.</div>
+          <div className="py-16 px-6 text-center">
+            <div className="font-serif text-2xl text-foreground">No real orders yet.</div>
+            <p className="max-w-md mx-auto mt-2 text-sm text-muted-foreground leading-6">
+              Adminone now hides seed/demo orders by default. Place a Shopify test order and the
+              webhook will create the first production-ready order here.
+            </p>
+          </div>
         )}
         {filtered.map((o) => (
           <Link
