@@ -30,8 +30,9 @@ function UnlockPage() {
     setSubmitting(true);
     setError(false);
     try {
-      const { ok } = await unlock({ data: { password } });
+      const { ok, token } = await unlock({ data: { password } });
       if (ok) {
+        window.localStorage.setItem("racepace-gate-token", token);
         await router.invalidate();
         await router.navigate({ to: "/" });
       } else {

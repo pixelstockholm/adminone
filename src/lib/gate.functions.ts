@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { clearSession, getSession, updateSession } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { getSessionConfig, passwordMatches, type GateSession } from "./gate.server";
+import {
+  createGateToken,
+  getSessionConfig,
+  passwordMatches,
+  verifyGateToken,
+  type GateSession,
+} from "./gate.server";
 
 export const checkUnlocked = createServerFn({ method: "GET" }).handler(async () => {
   const session = await getSession<GateSession>(getSessionConfig());
@@ -17,8 +23,12 @@ export const unlockSite = createServerFn({ method: "POST" })
       return { ok: false as const };
     }
     await updateSession<GateSession>(getSessionConfig(), { unlocked: true });
-    return { ok: true as const };
+    return { ok: true as const, token: createGateToken() };
   });
+
+export const checkUnlockToken = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ token: z.string().min(1).max(1000) }).parse(input))
+  .handler(async ({ data }) => ({ unlocked: verifyGateToken(data.token) }));
 
 export const lockSite = createServerFn({ method: "POST" }).handler(async () => {
   await clearSession(getSessionConfig());
