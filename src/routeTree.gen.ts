@@ -16,6 +16,7 @@ import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ApiPublicPrintFilesOrderIdRouteImport } from './routes/api/public/print-files.$orderId'
 import { Route as ApiPublicWebhooksShopifyOrdersCreateRouteImport } from './routes/api/public/webhooks/shopify.orders-create'
 
@@ -54,6 +55,11 @@ const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
   path: '/orders/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPrintFilesOrderIdRoute =
   ApiPublicPrintFilesOrderIdRouteImport.update({
     id: '/api/public/print-files/$orderId',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/templates': typeof TemplatesRoute
   '/unlock': typeof UnlockRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/api/public/print-files/$orderId': typeof ApiPublicPrintFilesOrderIdRoute
   '/api/public/webhooks/shopify/orders-create': typeof ApiPublicWebhooksShopifyOrdersCreateRoute
 }
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/templates': typeof TemplatesRoute
   '/unlock': typeof UnlockRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/api/public/print-files/$orderId': typeof ApiPublicPrintFilesOrderIdRoute
   '/api/public/webhooks/shopify/orders-create': typeof ApiPublicWebhooksShopifyOrdersCreateRoute
 }
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/templates': typeof TemplatesRoute
   '/unlock': typeof UnlockRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/api/public/print-files/$orderId': typeof ApiPublicPrintFilesOrderIdRoute
   '/api/public/webhooks/shopify/orders-create': typeof ApiPublicWebhooksShopifyOrdersCreateRoute
 }
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/templates'
     | '/unlock'
     | '/orders/$orderId'
+    | '/api/public/health'
     | '/api/public/print-files/$orderId'
     | '/api/public/webhooks/shopify/orders-create'
   fileRoutesByTo: FileRoutesByTo
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/templates'
     | '/unlock'
     | '/orders/$orderId'
+    | '/api/public/health'
     | '/api/public/print-files/$orderId'
     | '/api/public/webhooks/shopify/orders-create'
   id:
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/templates'
     | '/unlock'
     | '/orders/$orderId'
+    | '/api/public/health'
     | '/api/public/print-files/$orderId'
     | '/api/public/webhooks/shopify/orders-create'
   fileRoutesById: FileRoutesById
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   TemplatesRoute: typeof TemplatesRoute
   UnlockRoute: typeof UnlockRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   ApiPublicPrintFilesOrderIdRoute: typeof ApiPublicPrintFilesOrderIdRoute
   ApiPublicWebhooksShopifyOrdersCreateRoute: typeof ApiPublicWebhooksShopifyOrdersCreateRoute
 }
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/print-files/$orderId': {
       id: '/api/public/print-files/$orderId'
       path: '/api/public/print-files/$orderId'
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   TemplatesRoute: TemplatesRoute,
   UnlockRoute: UnlockRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRoute,
   ApiPublicPrintFilesOrderIdRoute: ApiPublicPrintFilesOrderIdRoute,
   ApiPublicWebhooksShopifyOrdersCreateRoute:
     ApiPublicWebhooksShopifyOrdersCreateRoute,
