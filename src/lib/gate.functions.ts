@@ -1,34 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
-import { useSession } from "@tanstack/react-start/server";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { clearSession, getSession, updateSession } from "@tanstack/react-start/server";
 import { z } from "zod";
-
-type GateSession = { unlocked?: boolean };
-
-function getSessionConfig() {
-  const password = process.env.SESSION_SECRET;
-  if (!password) throw new Error("SESSION_SECRET is not set");
-  return {
-    password,
-    name: "racepace-gate",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    cookie: {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax" as const,
-      path: "/",
-    },
-  };
-}
-
-function passwordMatches(input: string, expected: string): boolean {
-  const a = createHash("sha256").update(input, "utf8").digest();
-  const b = createHash("sha256").update(expected, "utf8").digest();
-  return timingSafeEqual(a, b);
-}
+import {
+  createGateToken,
+  getSessionConfig,
+  passwordMatches,
+  verifyGateToken,
+  type GateSession,
+} from "./gate.server";
 
 export const checkUnlocked = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await useSession<GateSession>(getSessionConfig());
+  const session = await getSession<GateSession>(getSessionConfig());
   return { unlocked: Boolean(session.data.unlocked) };
 });
 
@@ -40,13 +22,15 @@ export const unlockSite = createServerFn({ method: "POST" })
     if (!passwordMatches(data.password, expected)) {
       return { ok: false as const };
     }
-    const session = await useSession<GateSession>(getSessionConfig());
-    await session.update({ unlocked: true });
-    return { ok: true as const };
+    await updateSession<GateSession>(getSessionConfig(), { unlocked: true });
+    return { ok: true as const, token: createGateToken() };
   });
 
+export const checkUnlockToken = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ token: z.string().min(1).max(1000) }).parse(input))
+  .handler(async ({ data }) => ({ unlocked: verifyGateToken(data.token) }));
+
 export const lockSite = createServerFn({ method: "POST" }).handler(async () => {
-  const session = await useSession<GateSession>(getSessionConfig());
-  await session.clear();
+  await clearSession(getSessionConfig());
   return { ok: true as const };
 });

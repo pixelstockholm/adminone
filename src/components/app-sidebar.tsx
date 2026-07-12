@@ -24,6 +24,7 @@ export function AppSidebar() {
 
   async function handleLock() {
     await lock();
+    window.localStorage.removeItem("racepace-gate-token");
     await router.invalidate();
     await router.navigate({ to: "/unlock" });
   }

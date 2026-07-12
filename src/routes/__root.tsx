@@ -14,7 +14,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppSidebar } from "../components/app-sidebar";
-import { checkUnlocked } from "../lib/gate.functions";
+import { checkUnlocked, checkUnlockToken } from "../lib/gate.functions";
 import { Toaster } from "../components/ui/sonner";
 
 function NotFoundComponent() {
@@ -69,6 +69,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     if (location.pathname === "/unlock") return;
     if (location.pathname.startsWith("/api/")) return;
     const { unlocked } = await checkUnlocked();
+    if (!unlocked && typeof window !== "undefined") {
+      const token = window.localStorage.getItem("racepace-gate-token");
+      if (token) {
+        const fallback = await checkUnlockToken({ data: { token } });
+        if (fallback.unlocked) return;
+        window.localStorage.removeItem("racepace-gate-token");
+      }
+    }
     if (!unlocked) throw redirect({ to: "/unlock" });
   },
   head: () => ({
