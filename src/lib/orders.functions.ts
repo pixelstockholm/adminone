@@ -69,6 +69,13 @@ function toOrder(row: DbOrder): Order {
   };
 }
 
+function isMissingColumnError(error: { message?: string; code?: string } | null | undefined) {
+  return (
+    error?.code === "42703" ||
+    error?.message?.toLowerCase().includes("column") && error.message.toLowerCase().includes("does not exist")
+  );
+}
+
 function buildPrintPayload(row: DbOrder) {
   return {
     order: {
@@ -253,6 +260,10 @@ export const listOrders = createServerFn({ method: "GET" }).handler(async () => 
   }
 
   const { data, error } = await query;
+  if (isMissingColumnError(error)) {
+    console.warn("[Adminone] Orders table is missing Shopify/production columns. Run Supabase migrations.");
+    return [];
+  }
   if (error) throw new Error(error.message);
   return (data as DbOrder[]).map(toOrder);
 });
