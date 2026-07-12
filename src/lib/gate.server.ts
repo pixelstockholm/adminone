@@ -47,6 +47,7 @@ export function verifyGateToken(token: string): boolean {
   if (!payload || !signature) return false;
 
   const expected = signPayload(payload);
+  if (Buffer.byteLength(signature) !== Buffer.byteLength(expected)) return false;
   if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return false;
 
   const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { exp?: number };
