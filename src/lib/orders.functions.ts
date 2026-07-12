@@ -346,13 +346,13 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
     }
 
     const productionRequest = buildProductionRequest(dbOrder);
-    if (!productionRequest.headers["X-API-Key"] && productionRequest.provider === "prodigi") {
+    if (!(productionRequest.headers as Record<string, string>)["X-API-Key"] && productionRequest.provider === "prodigi") {
       throw new Error("Missing PRINT_PROVIDER_API_KEY. Add your Prodigi API key.");
     }
 
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: productionRequest.headers,
+      headers: productionRequest.headers as Record<string, string>,
       body: JSON.stringify(productionRequest.payload),
     });
 

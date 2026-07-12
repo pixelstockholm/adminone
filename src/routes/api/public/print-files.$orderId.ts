@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/public/print-files/$orderId")({
         if (!row) return new Response("Order not found", { status: 404 });
 
         const file = await renderPrintPdf(row);
-        return new Response(file.pdf, {
+        return new Response(file.pdf as unknown as BodyInit, {
           status: 200,
           headers: {
             "Content-Type": file.mimeType,
