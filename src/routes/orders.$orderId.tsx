@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import {
   getOrderById,
-  getOrderPrintExport,
   saveOrderNotes,
   sendOrderToProduction,
   updateOrderStatus,
@@ -40,12 +39,14 @@ export const Route = createFileRoute("/orders/$orderId")({
 function OrderDetail() {
   const { orderId } = Route.useParams();
   const qc = useQueryClient();
+  const posterRef = useRef<HTMLDivElement>(null);
   const { data: order, isLoading } = useQuery({
     queryKey: ["order", orderId],
     queryFn: () => getOrderById({ data: { id: orderId } }),
   });
 
   const [notes, setNotes] = useState("");
+  const [isExportingPreview, setIsExportingPreview] = useState(false);
   useEffect(() => {
     if (order) setNotes(order.notes ?? "");
   }, [order]);
@@ -70,29 +71,6 @@ function OrderDetail() {
       toast.error("Could not send to production", {
         description:
           error instanceof Error ? error.message : "Check the print provider integration.",
-      });
-    },
-  });
-
-  const exportMut = useMutation({
-    mutationFn: () => getOrderPrintExport({ data: { id: orderId } }),
-    onSuccess: (file) => {
-      const blob = new Blob([file.svg], { type: file.mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast.success("Print file exported", {
-        description: `${file.size.label} · ${file.dpi} DPI · ${file.size.widthPx}×${file.size.heightPx}px`,
-      });
-    },
-    onError: (error) => {
-      toast.error("Could not export print file", {
-        description: error instanceof Error ? error.message : "Check the order data.",
       });
     },
   });
@@ -133,6 +111,24 @@ function OrderDetail() {
       ? "Missing full shipping address from Shopify checkout."
       : null;
 
+  const handlePreviewExport = async () => {
+    if (!posterRef.current) return;
+    setIsExportingPreview(true);
+    try {
+      const file = await renderPosterNodeToPng(posterRef.current, order.size);
+      downloadBlob(file.blob, `${safeFilePart(order.number)}-${safeFilePart(order.raceId || order.raceShort)}-${file.size.key}.png`);
+      toast.success("Preview PNG exported", {
+        description: `${file.size.label} · 300 DPI · ${file.size.widthPx}x${file.size.heightPx}px`,
+      });
+    } catch (error) {
+      toast.error("Could not export preview PNG", {
+        description: error instanceof Error ? error.message : "Try again after the poster preview has loaded.",
+      });
+    } finally {
+      setIsExportingPreview(false);
+    }
+  };
+
   return (
     <div className="px-8 py-7 max-w-[1400px] mx-auto">
       <Link
@@ -156,16 +152,16 @@ function OrderDetail() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => exportMut.mutate()}
-            disabled={exportMut.isPending}
+            onClick={handlePreviewExport}
+            disabled={isExportingPreview}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface hover:bg-accent text-xs font-medium transition disabled:opacity-50"
           >
-            {exportMut.isPending ? (
+            {isExportingPreview ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Download className="h-3.5 w-3.5" />
             )}
-            Export Print SVG
+            Export Preview PNG
           </button>
           <button
             onClick={() => statusMut.mutate("approved")}
@@ -198,7 +194,7 @@ function OrderDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-6 mt-6">
         <div className="surface-card p-8 flex items-center justify-center bg-gradient-to-br from-surface to-card">
-          <div className="w-full max-w-md shadow-2xl shadow-black/40 rounded-md">
+          <div ref={posterRef} className="w-full max-w-md shadow-2xl shadow-black/40 rounded-md">
             <OrderPoster order={order} size="xl" />
           </div>
         </div>
@@ -286,6 +282,107 @@ function OrderDetail() {
       </div>
     </div>
   );
+}
+
+type ExportSize = {
+  key: string;
+  label: string;
+  widthPx: number;
+  heightPx: number;
+};
+
+const PREVIEW_EXPORT_DPI = 300;
+const PREVIEW_EXPORT_CM_PER_INCH = 2.54;
+
+function resolveExportSize(size: string): ExportSize {
+  const normalized = size.toLowerCase().replace(/[×x]/g, "x").replace(/\s/g, "");
+  if (normalized.includes("70x100")) return makeExportSize("70x100", "70x100cm", 70, 100);
+  if (normalized.includes("50x70")) return makeExportSize("50x70", "50x70cm", 50, 70);
+  return makeExportSize("30x40", "30x40cm", 30, 40);
+}
+
+function makeExportSize(key: string, label: string, widthCm: number, heightCm: number): ExportSize {
+  return {
+    key,
+    label,
+    widthPx: Math.round((widthCm / PREVIEW_EXPORT_CM_PER_INCH) * PREVIEW_EXPORT_DPI),
+    heightPx: Math.round((heightCm / PREVIEW_EXPORT_CM_PER_INCH) * PREVIEW_EXPORT_DPI),
+  };
+}
+
+async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
+  const size = resolveExportSize(sizeValue);
+  await document.fonts.ready;
+
+  const poster = node.querySelector("[data-racepace-poster]") as HTMLElement | null;
+  if (!poster) throw new Error("Poster preview was not found.");
+
+  const clone = poster.cloneNode(true) as HTMLElement;
+  clone.style.width = `${size.widthPx}px`;
+  clone.style.height = `${size.heightPx}px`;
+  clone.style.maxWidth = "none";
+  clone.style.aspectRatio = "auto";
+  clone.style.boxShadow = "none";
+  clone.style.borderRadius = "0";
+
+  const html = `
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${size.widthPx}px;height:${size.heightPx}px;margin:0;padding:0;overflow:hidden;">
+      ${clone.outerHTML}
+    </div>
+  `;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size.widthPx}" height="${size.heightPx}" viewBox="0 0 ${size.widthPx} ${size.heightPx}">
+      <foreignObject width="100%" height="100%">${html}</foreignObject>
+    </svg>
+  `;
+
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = await loadImage(url);
+    const canvas = document.createElement("canvas");
+    canvas.width = size.widthPx;
+    canvas.height = size.heightPx;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not create image canvas.");
+    context.drawImage(image, 0, 0, size.widthPx, size.heightPx);
+    const png = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) resolve(result);
+        else reject(new Error("Could not render PNG."));
+      }, "image/png");
+    });
+    return { blob: png, size };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load preview render."));
+    image.src = src;
+  });
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function safeFilePart(value?: string) {
+  return (value || "racepace")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "racepace";
 }
 
 function Row({
