@@ -360,6 +360,10 @@ async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
   clone.style.aspectRatio = "auto";
   clone.style.boxShadow = "none";
   clone.style.borderRadius = "0";
+  clone.style.boxSizing = "border-box";
+  clone.querySelectorAll<HTMLElement | SVGElement>("*").forEach((element) => {
+    element.style.boxSizing = "border-box";
+  });
   clone.querySelectorAll("svg").forEach((svgNode) => {
     svgNode.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   });

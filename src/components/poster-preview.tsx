@@ -128,7 +128,7 @@ export function OrderPoster({ order, size = "md" }: { order: Order; size?: Poste
   const route = verifiedRoutes.find((candidate) => candidate.race_id === raceId);
   const cityName = (route?.city || order.raceShort || order.race || "City").toUpperCase();
   const countryLine = (route?.country || "").toUpperCase();
-  const year = String(route?.year || order.year || yearOf(order.date));
+  const year = String(order.year || yearOf(order.date) || route?.year || "");
   const palette = CITY_PALETTES[raceId] || CITY_PALETTES.berlin;
   const neighborhoods = NEIGHBORHOODS[raceId] || [];
   const coords = COORDS[raceId];
