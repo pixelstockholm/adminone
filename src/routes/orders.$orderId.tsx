@@ -24,6 +24,7 @@ import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { POSTER_FONT_STYLESHEET_URL } from "@/lib/poster-fonts";
 
 export const Route = createFileRoute("/orders/$orderId")({
   head: ({ params }) => ({
@@ -329,6 +330,7 @@ type ExportSize = {
 
 const PREVIEW_EXPORT_DPI = 300;
 const PREVIEW_EXPORT_CM_PER_INCH = 2.54;
+let embeddedPosterFontCssPromise: Promise<string> | undefined;
 
 function resolveExportSize(size: string): ExportSize {
   const normalized = size.toLowerCase().replace(/[×x]/g, "x").replace(/\s/g, "");
@@ -349,6 +351,7 @@ function makeExportSize(key: string, label: string, widthCm: number, heightCm: n
 async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
   const size = resolveExportSize(sizeValue);
   await document.fonts.ready;
+  const embeddedFontCss = await getEmbeddedPosterFontCss();
 
   const poster = node.querySelector("[data-racepace-poster]") as HTMLElement | null;
   if (!poster) throw new Error("Poster preview was not found.");
@@ -370,6 +373,7 @@ async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
 
   const html = `
     <div xmlns="http://www.w3.org/1999/xhtml" style="width:${size.widthPx}px;height:${size.heightPx}px;margin:0;padding:0;overflow:hidden;">
+      <style>${embeddedFontCss}</style>
       ${clone.outerHTML}
     </div>
   `;
@@ -396,6 +400,46 @@ async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
     }, "image/png");
   });
   return { blob: png, size };
+}
+
+function getEmbeddedPosterFontCss() {
+  embeddedPosterFontCssPromise ??= (async () => {
+    const stylesheetResponse = await fetch(POSTER_FONT_STYLESHEET_URL);
+    if (!stylesheetResponse.ok) {
+      throw new Error(`Could not load poster fonts (${stylesheetResponse.status}).`);
+    }
+
+    let stylesheet = await stylesheetResponse.text();
+    const fontUrls = Array.from(
+      new Set(stylesheet.match(/https:\/\/fonts\.gstatic\.com\/[^)'"\s]+/g) ?? []),
+    );
+
+    const embeddedFonts = await Promise.all(
+      fontUrls.map(async (fontUrl) => {
+        const fontResponse = await fetch(fontUrl);
+        if (!fontResponse.ok) {
+          throw new Error(`Could not load a poster font (${fontResponse.status}).`);
+        }
+        return [fontUrl, await blobToDataUrl(await fontResponse.blob())] as const;
+      }),
+    );
+
+    for (const [fontUrl, dataUrl] of embeddedFonts) {
+      stylesheet = stylesheet.split(fontUrl).join(dataUrl);
+    }
+    return stylesheet;
+  })();
+
+  return embeddedPosterFontCssPromise;
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Could not embed poster font."));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function loadImage(src: string) {
