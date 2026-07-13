@@ -4,6 +4,10 @@ function envReady(key: string) {
   return Boolean(process.env[key]);
 }
 
+function envLengthAtLeast(key: string, length: number) {
+  return (process.env[key]?.length ?? 0) >= length;
+}
+
 const expectedOrderColumns = [
   "shopify_order_id",
   "shopify_line_item_id",
@@ -62,6 +66,7 @@ export const Route = createFileRoute("/api/public/health")({
           database,
           sitePassword: envReady("SITE_PASSWORD"),
           sessionSecret: envReady("SESSION_SECRET"),
+          sessionSecretStrong: envLengthAtLeast("SESSION_SECRET", 32),
           shopifyWebhookSecret: envReady("SHOPIFY_WEBHOOK_SECRET"),
           printProviderName: process.env.PRINT_PROVIDER_NAME || "Not configured",
           printProviderEndpoint: envReady("PRINT_PROVIDER_ENDPOINT"),
