@@ -137,9 +137,10 @@ export function OrderPoster({ order, size = "md" }: { order: Order; size?: Poste
 
   return (
     <div
-      className="w-full aspect-[3/4] overflow-hidden"
+      className="w-full overflow-hidden"
       data-racepace-poster
       style={{
+        aspectRatio: aspectRatioForSize(order.size),
         backgroundColor: paper,
         color: ink,
         position: "relative",
@@ -446,6 +447,14 @@ function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function aspectRatioForSize(size?: string): string {
+  const normalized = (size || "").toLowerCase().replace(/[×x]/g, "x").replace(/\s/g, "");
+  if (normalized.includes("70x100")) return "7 / 10";
+  if (normalized.includes("50x70")) return "5 / 7";
+  if (normalized.includes("30x40")) return "3 / 4";
+  return "3 / 4";
 }
 
 function colorWithAlpha(hex: string, alpha: number): string {
