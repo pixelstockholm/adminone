@@ -356,9 +356,16 @@ async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
   const poster = node.querySelector("[data-racepace-poster]") as HTMLElement | null;
   if (!poster) throw new Error("Poster preview was not found.");
 
+  const previewBounds = poster.getBoundingClientRect();
+  if (!previewBounds.width || !previewBounds.height) {
+    throw new Error("Poster preview has invalid dimensions.");
+  }
+  const previewWidth = previewBounds.width;
+  const previewHeight = previewBounds.height;
+
   const clone = poster.cloneNode(true) as HTMLElement;
-  clone.style.width = `${size.widthPx}px`;
-  clone.style.height = `${size.heightPx}px`;
+  clone.style.width = `${previewWidth}px`;
+  clone.style.height = `${previewHeight}px`;
   clone.style.maxWidth = "none";
   clone.style.aspectRatio = "auto";
   clone.style.boxShadow = "none";
@@ -372,14 +379,14 @@ async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
   });
 
   const html = `
-    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${size.widthPx}px;height:${size.heightPx}px;margin:0;padding:0;overflow:hidden;">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${previewWidth}px;height:${previewHeight}px;margin:0;padding:0;overflow:hidden;">
       <style>${embeddedFontCss}</style>
       ${clone.outerHTML}
     </div>
   `;
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size.widthPx}" height="${size.heightPx}" viewBox="0 0 ${size.widthPx} ${size.heightPx}">
-      <foreignObject width="100%" height="100%">${html}</foreignObject>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size.widthPx}" height="${size.heightPx}" viewBox="0 0 ${previewWidth} ${previewHeight}">
+      <foreignObject width="${previewWidth}" height="${previewHeight}">${html}</foreignObject>
     </svg>
   `;
 
