@@ -491,7 +491,7 @@ function makeSize(key: string, label: string, widthCm: number, heightCm: number)
 }
 
 function resolvePrintSize(size: string): PrintSize {
-  const normalized = size.toLowerCase().replace(/\s/g, "");
+  const normalized = size.toLowerCase().replace(/[×x]/g, "x").replace(/\s/g, "");
   if (normalized.includes("70x100")) return PRINT_SIZES[2];
   if (normalized.includes("50x70")) return PRINT_SIZES[1];
   return PRINT_SIZES[0];

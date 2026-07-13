@@ -161,7 +161,7 @@ function getPublicPrintFileUrl(row: DbOrder) {
 }
 
 function resolveProdigiSku(size: string) {
-  const normalized = size.toLowerCase().replace(/\s/g, "");
+  const normalized = size.toLowerCase().replace(/[×x]/g, "x").replace(/\s/g, "");
   const key = normalized.includes("70x100")
     ? "PRODIGI_SKU_70X100"
     : normalized.includes("50x70")
