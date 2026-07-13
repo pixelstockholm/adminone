@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useMemo } from "react";
 
 import rawRoutes from "@/data/verifiedRoutes.json";
 import type { Order } from "@/lib/mock-data";
@@ -38,7 +38,13 @@ const NEIGHBORHOODS: Record<string, string[]> = {
   hamburg: ["Karolinenviertel", "Alster", "Eppendorf", "HafenCity", "Messe"],
   "big-sur": ["Big Sur", "Bixby Bridge", "Hurricane Point", "Carmel Highlands", "Highway 1"],
   "gold-coast": ["Southport", "Broadwater", "Surfers Paradise", "Burleigh", "Runaway Bay"],
-  "san-francisco": ["Embarcadero", "Fisherman's Wharf", "Golden Gate", "Haight Street", "Oracle Park"],
+  "san-francisco": [
+    "Embarcadero",
+    "Fisherman's Wharf",
+    "Golden Gate",
+    "Haight Street",
+    "Oracle Park",
+  ],
   knysna: ["Knysna Forest", "Gouna", "Simola", "Estuary", "Knysna Heads"],
   oulu: ["Kuusisaari", "Tuiranranta", "Oulu River", "Raatinsaari", "Athletics Stadium"],
   valencia: ["Ciutat Vella", "Russafa", "Cabanyal", "Turia", "Ciudad de las Artes"],
@@ -88,7 +94,14 @@ const CITY_PALETTES: Record<string, { paper: string; ink: string; muted: string;
   paris: { paper: "#E8DED1", ink: "#151515", muted: "#5D554B", line: "#151515" },
 };
 
-export function PosterPreview({ title, subtitle, time, date, name, size = "md" }: PosterPreviewProps) {
+export function PosterPreview({
+  title,
+  subtitle,
+  time,
+  date,
+  name,
+  size = "md",
+}: PosterPreviewProps) {
   const templateOrder: Order = {
     id: "template-preview",
     number: "TPL",
@@ -122,8 +135,6 @@ export function OrderPoster({ order, size = "md" }: { order: Order; size?: Poste
   const routePath = route?.svg_path || "";
   const routeBox = useMemo(() => computeRouteBox(routePath), [routePath]);
   const editionNo = useMemo(() => editionNumber(`${raceId}-${year}`), [raceId, year]);
-  const grainId = `admin-poster-grain-${useId().replace(/:/g, "")}`;
-
   const displayDate = formatDate(order.date);
   const displayName = (order.customer.name || "Your Name").toUpperCase();
   const displayTime = order.time || "00:00:00";
@@ -152,27 +163,6 @@ export function OrderPoster({ order, size = "md" }: { order: Order; size?: Poste
             : "0 18px 42px rgba(0,0,0,0.34), inset 0 0 0 1px rgba(255,255,255,0.12)",
       }}
     >
-      <svg aria-hidden width="0" height="0" style={{ position: "absolute" }}>
-        <defs>
-          <filter id={grainId}>
-            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
-            <feColorMatrix type="saturate" values="0" />
-          </filter>
-        </defs>
-      </svg>
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          filter: `url(#${grainId})`,
-          opacity: 0.1,
-          mixBlendMode: isLightPalette(paper) ? "multiply" : "screen",
-          pointerEvents: "none",
-          zIndex: 0,
-        }}
-      />
-
       <div
         style={{
           position: "relative",
@@ -306,7 +296,14 @@ export function OrderPoster({ order, size = "md" }: { order: Order; size?: Poste
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx={routeBox.startX} cy={routeBox.startY} r="1.4" fill="none" stroke={palette.line} strokeWidth="1" />
+              <circle
+                cx={routeBox.startX}
+                cy={routeBox.startY}
+                r="1.4"
+                fill="none"
+                stroke={palette.line}
+                strokeWidth="1"
+              />
               <circle cx={routeBox.endX} cy={routeBox.endY} r="1.6" fill={palette.line} />
             </svg>
           ) : (
@@ -426,7 +423,9 @@ function formatDate(value: string): string {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.toUpperCase();
-  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+  return date
+    .toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    .toUpperCase();
 }
 
 function yearOf(value: string): string {
@@ -463,12 +462,4 @@ function colorWithAlpha(hex: string, alpha: number): string {
   const g = parseInt(value.slice(2, 4), 16);
   const b = parseInt(value.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
-}
-
-function isLightPalette(hex: string): boolean {
-  const value = hex.replace("#", "");
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 190;
 }

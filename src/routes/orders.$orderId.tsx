@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import {
   getOrderById,
+  createProductionPngUpload,
   saveOrderNotes,
   sendOrderToProduction,
   updateOrderStatus,
@@ -22,6 +23,7 @@ import {
 import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/orders/$orderId")({
   head: ({ params }) => ({
@@ -61,7 +63,22 @@ function OrderDetail() {
   });
 
   const productionMut = useMutation({
-    mutationFn: () => sendOrderToProduction({ data: { id: orderId } }),
+    mutationFn: async () => {
+      if (!posterRef.current) throw new Error("Poster preview was not found.");
+
+      const file = await renderPosterNodeToPng(posterRef.current, order?.size || "30x40cm");
+      const gateToken = window.localStorage.getItem("racepace-gate-token") || undefined;
+      const upload = await createProductionPngUpload({ data: { id: orderId, gateToken } });
+      const { error } = await supabase.storage
+        .from(upload.bucket)
+        .uploadToSignedUrl(upload.path, upload.token, file.blob, {
+          contentType: "image/png",
+          upsert: true,
+        });
+      if (error) throw new Error(`Could not upload production PNG: ${error.message}`);
+
+      return sendOrderToProduction({ data: { id: orderId, gateToken } });
+    },
     onSuccess: () => {
       toast.success("Order sent to production");
       qc.invalidateQueries({ queryKey: ["order", orderId] });
@@ -99,30 +116,45 @@ function OrderDetail() {
   ].filter(Boolean);
   const hasPrintAddress = Boolean(
     order.shipping?.address1 &&
-      order.shipping?.city &&
-      order.shipping?.postalCode &&
-      order.shipping?.countryCode,
+    order.shipping?.city &&
+    order.shipping?.postalCode &&
+    order.shipping?.countryCode,
   );
   const isRealShopifyOrder = Boolean(order.shopifyOrderId);
-  const canSendToProduction = isRealShopifyOrder && hasPrintAddress;
+  const canSendToProduction =
+    isRealShopifyOrder &&
+    hasPrintAddress &&
+    order.status === "approved" &&
+    order.routeVerified === true &&
+    !order.productionSentAt;
   const productionBlocker = !isRealShopifyOrder
     ? "This is a demo/imported order. Send a Shopify test order first."
     : !hasPrintAddress
       ? "Missing full shipping address from Shopify checkout."
-      : null;
+      : order.status !== "approved"
+        ? "Approve this order before sending it to production."
+        : order.routeVerified !== true
+          ? "Verify the race route before sending it to production."
+          : order.productionSentAt
+            ? "This order has already been sent to production."
+            : null;
 
   const handlePreviewExport = async () => {
     if (!posterRef.current) return;
     setIsExportingPreview(true);
     try {
       const file = await renderPosterNodeToPng(posterRef.current, order.size);
-      downloadBlob(file.blob, `${safeFilePart(order.number)}-${safeFilePart(order.raceId || order.raceShort)}-${file.size.key}.png`);
+      downloadBlob(
+        file.blob,
+        `${safeFilePart(order.number)}-${safeFilePart(order.raceId || order.raceShort)}-${file.size.key}.png`,
+      );
       toast.success("Preview PNG exported", {
         description: `${file.size.label} · 300 DPI · ${file.size.widthPx}x${file.size.heightPx}px`,
       });
     } catch (error) {
       toast.error("Could not export preview PNG", {
-        description: error instanceof Error ? error.message : "Try again after the poster preview has loaded.",
+        description:
+          error instanceof Error ? error.message : "Try again after the poster preview has loaded.",
       });
     } finally {
       setIsExportingPreview(false);
@@ -223,7 +255,11 @@ function OrderDetail() {
                 <Row
                   icon={MapPin}
                   label={hasPrintAddress ? "Print address" : "Print address missing"}
-                  value={shippingLines.length ? shippingLines.join(" · ") : "Missing full shipping address"}
+                  value={
+                    shippingLines.length
+                      ? shippingLines.join(" · ")
+                      : "Missing full shipping address"
+                  }
                 />
               </div>
             </div>
@@ -324,6 +360,9 @@ async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
   clone.style.aspectRatio = "auto";
   clone.style.boxShadow = "none";
   clone.style.borderRadius = "0";
+  clone.querySelectorAll("svg").forEach((svgNode) => {
+    svgNode.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  });
 
   const html = `
     <div xmlns="http://www.w3.org/1999/xhtml" style="width:${size.widthPx}px;height:${size.heightPx}px;margin:0;padding:0;overflow:hidden;">
@@ -336,26 +375,23 @@ async function renderPosterNodeToPng(node: HTMLElement, sizeValue: string) {
     </svg>
   `;
 
-  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  try {
-    const image = await loadImage(url);
-    const canvas = document.createElement("canvas");
-    canvas.width = size.widthPx;
-    canvas.height = size.heightPx;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Could not create image canvas.");
-    context.drawImage(image, 0, 0, size.widthPx, size.heightPx);
-    const png = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((result) => {
-        if (result) resolve(result);
-        else reject(new Error("Could not render PNG."));
-      }, "image/png");
-    });
-    return { blob: png, size };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  // A blob: URL containing foreignObject taints the canvas in production Chrome.
+  // Keeping the complete SVG in a data URL gives the image a safe, self-contained source.
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  const image = await loadImage(url);
+  const canvas = document.createElement("canvas");
+  canvas.width = size.widthPx;
+  canvas.height = size.heightPx;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Could not create image canvas.");
+  context.drawImage(image, 0, 0, size.widthPx, size.heightPx);
+  const png = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error("Could not render PNG."));
+    }, "image/png");
+  });
+  return { blob: png, size };
 }
 
 function loadImage(src: string) {
@@ -379,10 +415,12 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 function safeFilePart(value?: string) {
-  return (value || "racepace")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "") || "racepace";
+  return (
+    (value || "racepace")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "racepace"
+  );
 }
 
 function Row({

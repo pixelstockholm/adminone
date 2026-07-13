@@ -39,6 +39,59 @@ type DbOrder = {
   production_sent_at?: string | null;
 };
 
+const PRINT_FILES_BUCKET = "print-files";
+const PRINT_FILE_NAME = "preview-300dpi.png";
+
+async function requireAdmin(gateToken?: string) {
+  const [{ getSession }, { getSessionConfig, verifyGateToken }] = await Promise.all([
+    import("@tanstack/react-start/server"),
+    import("./gate.server"),
+  ]);
+
+  try {
+    const session = await getSession<{ unlocked?: boolean }>(getSessionConfig());
+    if (session.data.unlocked) return;
+  } catch {
+    // Lovable can fall back to the signed browser token when its cookie is unavailable.
+  }
+
+  if (gateToken && verifyGateToken(gateToken)) return;
+  throw new Error("Admin session expired. Unlock the dashboard again.");
+}
+
+function getPrintFilePath(orderId: string) {
+  return `${orderId}/${PRINT_FILE_NAME}`;
+}
+
+async function ensurePrintFilesBucket() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin.storage.getBucket(PRINT_FILES_BUCKET);
+  if (data) return;
+  if (error && !/not found/i.test(error.message)) throw new Error(error.message);
+
+  const { error: createError } = await supabaseAdmin.storage.createBucket(PRINT_FILES_BUCKET, {
+    public: false,
+    fileSizeLimit: 100 * 1024 * 1024,
+    allowedMimeTypes: ["image/png"],
+  });
+  if (createError && !/already exists/i.test(createError.message)) {
+    throw new Error(createError.message);
+  }
+}
+
+async function requireProductionPng(orderId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin.storage
+    .from(PRINT_FILES_BUCKET)
+    .list(orderId, { limit: 10, search: PRINT_FILE_NAME });
+  if (error) throw new Error(`Could not verify production PNG: ${error.message}`);
+
+  const file = data.find((item) => item.name === PRINT_FILE_NAME);
+  if (!file || !file.metadata || Number(file.metadata.size) <= 0) {
+    throw new Error("Production PNG is missing. Render and upload the preview before sending.");
+  }
+}
+
 function toOrder(row: DbOrder): Order {
   const theme = themes[row.theme_key] ?? themes.midnight;
   return {
@@ -72,7 +125,8 @@ function toOrder(row: DbOrder): Order {
 function isMissingColumnError(error: { message?: string; code?: string } | null | undefined) {
   return (
     error?.code === "42703" ||
-    error?.message?.toLowerCase().includes("column") && error.message.toLowerCase().includes("does not exist")
+    (error?.message?.toLowerCase().includes("column") &&
+      error.message.toLowerCase().includes("does not exist"))
   );
 }
 
@@ -153,7 +207,9 @@ function getPublicPrintFileUrl(row: DbOrder) {
     throw new Error("Missing PRINT_FILE_BASE_URL. Add your deployed adminone URL.");
   }
   if (!token) {
-    throw new Error("Missing PRINT_FILE_ACCESS_TOKEN. Add a random token for secure print-file URLs.");
+    throw new Error(
+      "Missing PRINT_FILE_ACCESS_TOKEN. Add a random token for secure print-file URLs.",
+    );
   }
 
   const base = baseUrl.replace(/\/$/, "");
@@ -169,7 +225,9 @@ function resolveProdigiSku(size: string) {
       : "PRODIGI_SKU_30X40";
   const sku = process.env[key];
   if (!sku) {
-    throw new Error(`Missing ${key}. Choose the Prodigi Enhanced Matte Art Paper SKU for this size.`);
+    throw new Error(
+      `Missing ${key}. Choose the Prodigi Enhanced Matte Art Paper SKU for this size.`,
+    );
   }
   return sku;
 }
@@ -250,10 +308,7 @@ function buildProductionRequest(row: DbOrder) {
 
 export const listOrders = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  let query = supabaseAdmin
-    .from("orders")
-    .select("*")
-    .order("ordered_at", { ascending: false });
+  let query = supabaseAdmin.from("orders").select("*").order("ordered_at", { ascending: false });
 
   if (process.env.SHOW_DEMO_ORDERS !== "true") {
     query = query.not("shopify_order_id", "is", null);
@@ -261,7 +316,9 @@ export const listOrders = createServerFn({ method: "GET" }).handler(async () => 
 
   const { data, error } = await query;
   if (isMissingColumnError(error)) {
-    console.warn("[Adminone] Orders table is missing Shopify/production columns. Run Supabase migrations.");
+    console.warn(
+      "[Adminone] Orders table is missing Shopify/production columns. Run Supabase migrations.",
+    );
     return [];
   }
   if (error) throw new Error(error.message);
@@ -331,9 +388,54 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const sendOrderToProduction = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ id: z.string() }).parse(input))
+export const createProductionPngUpload = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        gateToken: z.string().max(1000).optional(),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }) => {
+    await requireAdmin(data.gateToken);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, status, shopify_order_id, route_verified")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("Order not found.");
+    if (row.status !== "approved") throw new Error("Approve the order before production.");
+    if (!row.shopify_order_id) throw new Error("Only Shopify orders can be sent to production.");
+    if (!row.route_verified) throw new Error("Verify the race route before production.");
+
+    await ensurePrintFilesBucket();
+    const path = getPrintFilePath(data.id);
+    const { data: upload, error: uploadError } = await supabaseAdmin.storage
+      .from(PRINT_FILES_BUCKET)
+      .createSignedUploadUrl(path, { upsert: true });
+    if (uploadError) throw new Error(uploadError.message);
+
+    return {
+      bucket: PRINT_FILES_BUCKET,
+      path,
+      token: upload.token,
+    };
+  });
+
+export const sendOrderToProduction = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        gateToken: z.string().max(1000).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireAdmin(data.gateToken);
     const endpoint = process.env.PRINT_PROVIDER_ENDPOINT;
     if (!endpoint) {
       throw new Error(
@@ -355,9 +457,23 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
     if (!dbOrder.shopify_order_id) {
       throw new Error("This is not a real Shopify order. Send a Shopify test order first.");
     }
+    if (dbOrder.status !== "approved") {
+      throw new Error("Order must be approved before production.");
+    }
+    if (!dbOrder.route_verified) {
+      throw new Error("Order route must be verified before production.");
+    }
+    if (dbOrder.production_sent_at) {
+      throw new Error("Order has already been sent to production.");
+    }
+
+    await requireProductionPng(dbOrder.id);
 
     const productionRequest = buildProductionRequest(dbOrder);
-    if (!(productionRequest.headers as Record<string, string>)["X-API-Key"] && productionRequest.provider === "prodigi") {
+    if (
+      !(productionRequest.headers as Record<string, string>)["X-API-Key"] &&
+      productionRequest.provider === "prodigi"
+    ) {
       throw new Error("Missing PRINT_PROVIDER_API_KEY. Add your Prodigi API key.");
     }
 

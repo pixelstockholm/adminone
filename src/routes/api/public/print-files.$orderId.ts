@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { renderPrintPdf } from "@/lib/print-export";
+
+const PRINT_FILES_BUCKET = "print-files";
+const PRINT_FILE_NAME = "preview-300dpi.png";
 
 export const Route = createFileRoute("/api/public/print-files/$orderId")({
   server: {
@@ -23,12 +25,20 @@ export const Route = createFileRoute("/api/public/print-files/$orderId")({
         if (error) return new Response(error.message, { status: 500 });
         if (!row) return new Response("Order not found", { status: 404 });
 
-        const file = await renderPrintPdf(row);
-        return new Response(file.pdf as unknown as BodyInit, {
+        const path = `${row.id}/${PRINT_FILE_NAME}`;
+        const { data: file, error: fileError } = await supabaseAdmin.storage
+          .from(PRINT_FILES_BUCKET)
+          .download(path);
+        if (fileError || !file) {
+          return new Response("Production PNG not found", { status: 404 });
+        }
+
+        return new Response(file, {
           status: 200,
           headers: {
-            "Content-Type": file.mimeType,
-            "Content-Disposition": `inline; filename="${file.fileName}"`,
+            "Content-Type": "image/png",
+            "Content-Length": String(file.size),
+            "Content-Disposition": `inline; filename="racepace-${row.id}.png"`,
             "Cache-Control": "private, max-age=300",
           },
         });
