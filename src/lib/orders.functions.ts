@@ -81,6 +81,7 @@ async function ensurePrintFilesBucket() {
 
 async function requireProductionPng(orderId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const path = getPrintFilePath(orderId);
   const { data, error } = await supabaseAdmin.storage
     .from(PRINT_FILES_BUCKET)
     .list(orderId, { limit: 10, search: PRINT_FILE_NAME });
@@ -90,6 +91,16 @@ async function requireProductionPng(orderId: string) {
   if (!file || !file.metadata || Number(file.metadata.size) <= 0) {
     throw new Error("Production PNG is missing. Render and upload the preview before sending.");
   }
+
+  const { data: signedFile, error: signedFileError } = await supabaseAdmin.storage
+    .from(PRINT_FILES_BUCKET)
+    .createSignedUrl(path, 60 * 60);
+  if (signedFileError || !signedFile?.signedUrl) {
+    throw new Error(
+      `Could not create production PNG download URL: ${signedFileError?.message || "Unknown error"}`,
+    );
+  }
+  return signedFile.signedUrl;
 }
 
 function toOrder(row: DbOrder): Order {
@@ -199,23 +210,6 @@ function requiredShippingAddress(row: DbOrder) {
   };
 }
 
-function getPublicPrintFileUrl(row: DbOrder) {
-  const baseUrl = process.env.PRINT_FILE_BASE_URL || process.env.PUBLIC_ADMIN_BASE_URL;
-  const token = process.env.PRINT_FILE_ACCESS_TOKEN;
-
-  if (!baseUrl) {
-    throw new Error("Missing PRINT_FILE_BASE_URL. Add your deployed adminone URL.");
-  }
-  if (!token) {
-    throw new Error(
-      "Missing PRINT_FILE_ACCESS_TOKEN. Add a random token for secure print-file URLs.",
-    );
-  }
-
-  const base = baseUrl.replace(/\/$/, "");
-  return `${base}/api/public/print-files/${row.id}?token=${encodeURIComponent(token)}`;
-}
-
 function resolveProdigiSku(size: string) {
   const normalized = size.toLowerCase().replace(/[×x]/g, "x").replace(/\s/g, "");
   const key = normalized.includes("70x100")
@@ -232,9 +226,8 @@ function resolveProdigiSku(size: string) {
   return sku;
 }
 
-function buildProdigiPayload(row: DbOrder) {
+function buildProdigiPayload(row: DbOrder, printFileUrl: string) {
   const shipping = requiredShippingAddress(row);
-  const printFileUrl = getPublicPrintFileUrl(row);
 
   return {
     shippingMethod: process.env.PRODIGI_SHIPPING_METHOD || "standard",
@@ -281,12 +274,12 @@ function buildProdigiPayload(row: DbOrder) {
   };
 }
 
-function buildProductionRequest(row: DbOrder) {
+function buildProductionRequest(row: DbOrder, printFileUrl: string) {
   const provider = (process.env.PRINT_PROVIDER_NAME || "custom").toLowerCase();
   if (provider === "prodigi") {
     return {
       provider,
-      payload: buildProdigiPayload(row),
+      payload: buildProdigiPayload(row, printFileUrl),
       headers: {
         "Content-Type": "application/json",
         "X-API-Key": process.env.PRINT_PROVIDER_API_KEY || "",
@@ -461,13 +454,14 @@ export const sendOrderToProduction = createServerFn({ method: "POST" })
     if (!dbOrder.route_verified) {
       throw new Error("Order route must be verified before production.");
     }
-    if (dbOrder.production_sent_at) {
+    const isSandbox = new URL(endpoint).hostname === "api.sandbox.prodigi.com";
+    if (dbOrder.production_sent_at && !isSandbox) {
       throw new Error("Order has already been sent to production.");
     }
 
-    await requireProductionPng(dbOrder.id);
+    const printFileUrl = await requireProductionPng(dbOrder.id);
 
-    const productionRequest = buildProductionRequest(dbOrder);
+    const productionRequest = buildProductionRequest(dbOrder, printFileUrl);
     if (
       !(productionRequest.headers as Record<string, string>)["X-API-Key"] &&
       productionRequest.provider === "prodigi"
