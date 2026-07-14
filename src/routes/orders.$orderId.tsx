@@ -23,7 +23,6 @@ import {
 import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { POSTER_FONT_STYLESHEET_URL } from "@/lib/poster-fonts";
 
 export const Route = createFileRoute("/orders/$orderId")({
@@ -70,13 +69,20 @@ function OrderDetail() {
       const file = await renderPosterNodeToPng(posterRef.current, order?.size || "30x40cm");
       const gateToken = window.localStorage.getItem("racepace-gate-token") || undefined;
       const upload = await createProductionPngUpload({ data: { id: orderId, gateToken } });
-      const { error } = await supabase.storage
-        .from(upload.bucket)
-        .uploadToSignedUrl(upload.path, upload.token, file.blob, {
-          contentType: "image/png",
-          upsert: true,
-        });
-      if (error) throw new Error(`Could not upload production PNG: ${error.message}`);
+      const uploadBody = new FormData();
+      uploadBody.append("cacheControl", "3600");
+      uploadBody.append("", file.blob, "preview-300dpi.png");
+      const uploadResponse = await fetch(upload.signedUrl, {
+        method: "PUT",
+        headers: { "x-upsert": "true" },
+        body: uploadBody,
+      });
+      if (!uploadResponse.ok) {
+        const detail = await uploadResponse.text();
+        throw new Error(
+          `Could not upload production PNG (${uploadResponse.status})${detail ? `: ${detail}` : "."}`,
+        );
+      }
 
       return sendOrderToProduction({ data: { id: orderId, gateToken } });
     },

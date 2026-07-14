@@ -419,9 +419,7 @@ export const createProductionPngUpload = createServerFn({ method: "POST" })
     if (uploadError) throw new Error(uploadError.message);
 
     return {
-      bucket: PRINT_FILES_BUCKET,
-      path,
-      token: upload.token,
+      signedUrl: upload.signedUrl,
     };
   });
 
