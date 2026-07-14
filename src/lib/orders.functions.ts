@@ -373,9 +373,23 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const endpoint = process.env.PRINT_PROVIDER_ENDPOINT;
+    const isSandbox = endpoint
+      ? new URL(endpoint).hostname === "api.sandbox.prodigi.com"
+      : false;
+    const update =
+      data.status === "approved" && isSandbox
+        ? {
+            status: data.status,
+            production_provider: null,
+            production_payload: null,
+            production_response: null,
+            production_sent_at: null,
+          }
+        : { status: data.status };
     const { error } = await supabaseAdmin
       .from("orders")
-      .update({ status: data.status })
+      .update(update)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
