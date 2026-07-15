@@ -13,7 +13,8 @@ export const Route = createFileRoute("/settings")({
       <div className="surface-card mt-6 p-5">
         <div className="font-serif text-2xl">Settings check failed.</div>
         <p className="mt-2 text-sm text-muted-foreground leading-6">
-          {error.message || "Adminone could not read its environment health. Check deployment envs and redeploy."}
+          {error.message ||
+            "Adminone could not read its environment health. Check deployment envs and redeploy."}
         </p>
       </div>
     </div>
@@ -21,7 +22,11 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { data: health, isLoading, error } = useQuery({
+  const {
+    data: health,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["admin-health"],
     queryFn: () => getAdminHealth(),
     retry: false,
@@ -68,7 +73,7 @@ function SettingsPage() {
       <div className="space-y-5 mt-6">
         <Section title="Workspace">
           <Field label="Workspace name" value="Racepace" />
-          <Field label="Contact email" value="hello@racepace.co" />
+          <Field label="Contact email" value="hello@racepace.shop" />
           <StatusField label="Access code" ready={safeHealth.sitePassword} envKey="SITE_PASSWORD" />
           <StatusField
             label="Session encryption"

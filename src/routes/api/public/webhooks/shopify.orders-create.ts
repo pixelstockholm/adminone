@@ -13,6 +13,7 @@ type ShopifyLineItem = {
   title?: string;
   variant_title?: string;
   price?: string;
+  quantity?: number;
   properties?: ShopifyLineItemProperty[];
 };
 type ShopifyAddress = {
@@ -52,11 +53,13 @@ function truthy(v: string | undefined) {
 }
 
 function shortRace(race: string) {
-  return race
-    .replace(/marathon|half|race|run/gi, "")
-    .trim()
-    .slice(0, 12)
-    .toUpperCase() || race.slice(0, 6).toUpperCase();
+  return (
+    race
+      .replace(/marathon|half|race|run/gi, "")
+      .trim()
+      .slice(0, 12)
+      .toUpperCase() || race.slice(0, 6).toUpperCase()
+  );
 }
 
 const THEME_KEYS = ["midnight", "ember", "forest", "cream", "noir", "sky"];
@@ -89,77 +92,100 @@ export const Route = createFileRoute("/api/public/webhooks/shopify/orders-create
           return new Response("Invalid JSON", { status: 400 });
         }
 
-        const firstItem = order.line_items?.[0];
-        const props = firstItem?.properties;
+        const lineItems = order.line_items || [];
+        if (!lineItems.length) return new Response("No line items", { status: 400 });
 
-        const customerName =
-          [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(" ") ||
-          prop(props, "Name", "Runner") ||
-          "Unknown runner";
-
-        const race = prop(props, "Race", "Event") || firstItem?.title || "Unknown race";
-        const time = prop(props, "Time", "Finish time") || "—";
-        const raceDate = prop(props, "Date", "Race date") || (order.created_at || "").slice(0, 10);
-        const yearMatch = raceDate.match(/(\d{4})/);
-        const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
-        const size = prop(props, "Size", "Poster size") || firstItem?.variant_title || "A3";
-        const theme = normalizeTheme(prop(props, "_poster_theme", "Color", "Color theme", "Theme"));
-        const location = [order.shipping_address?.city, order.shipping_address?.country]
+        const buyerName = [order.customer?.first_name, order.customer?.last_name]
           .filter(Boolean)
-          .join(", ") || "—";
+          .join(" ");
+        const location =
+          [order.shipping_address?.city, order.shipping_address?.country]
+            .filter(Boolean)
+            .join(", ") || "—";
         const shippingName =
           order.shipping_address?.name ||
           [order.shipping_address?.first_name, order.shipping_address?.last_name]
             .filter(Boolean)
             .join(" ") ||
-          customerName;
-        const price = parseFloat(order.total_price || firstItem?.price || "0") || 0;
-        const number = order.name || (order.order_number ? `#${order.order_number}` : `#${order.id}`);
-        const raceId = prop(props, "_race_id");
-        const routeVerified = truthy(prop(props, "_route_verified"));
-        const source = prop(props, "_source");
-        const designStatus = prop(props, "_design_status");
-        const fulfillmentStatus = prop(props, "_fulfillment_status");
-        const metaNotes = [
-          raceId ? `Race ID: ${raceId}` : null,
-          `Route verified: ${routeVerified ? "yes" : "no"}`,
-          designStatus ? `Design status: ${designStatus}` : null,
-          fulfillmentStatus ? `Fulfillment status: ${fulfillmentStatus}` : null,
-          source ? `Source: ${source}` : null,
-        ].filter(Boolean).join("\n");
+          buyerName ||
+          "Unknown customer";
+        const baseNumber =
+          order.name || (order.order_number ? `#${order.order_number}` : `#${order.id}`);
+        const rows = [];
+        let posterIndex = 0;
+
+        for (const item of lineItems) {
+          const props = item.properties;
+          const customerName = prop(props, "Name", "Runner") || buyerName || "Unknown runner";
+          const race = prop(props, "Race", "Event") || item.title || "Unknown race";
+          const time = prop(props, "Time", "Finish time") || "—";
+          const raceDate =
+            prop(props, "Date", "Race date") || (order.created_at || "").slice(0, 10);
+          const yearMatch = raceDate.match(/(\d{4})/);
+          const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+          const size = prop(props, "Size", "Poster size") || item.variant_title || "A3";
+          const theme = normalizeTheme(
+            prop(props, "_poster_theme", "Color", "Color theme", "Theme"),
+          );
+          const raceId = prop(props, "_race_id");
+          const routeVerified = truthy(prop(props, "_route_verified"));
+          const source = prop(props, "_source");
+          const designStatus = prop(props, "_design_status");
+          const fulfillmentStatus = prop(props, "_fulfillment_status");
+          const metaNotes = [
+            raceId ? `Race ID: ${raceId}` : null,
+            `Route verified: ${routeVerified ? "yes" : "no"}`,
+            designStatus ? `Design status: ${designStatus}` : null,
+            fulfillmentStatus ? `Fulfillment status: ${fulfillmentStatus}` : null,
+            source ? `Source: ${source}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+          const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+          const price =
+            parseFloat(item.price || (lineItems.length === 1 ? order.total_price || "0" : "0")) ||
+            0;
+
+          for (let copyIndex = 0; copyIndex < quantity; copyIndex += 1) {
+            const number = posterIndex === 0 ? baseNumber : `${baseNumber}-${posterIndex + 1}`;
+            rows.push({
+              number,
+              shopify_order_id: String(order.id),
+              shopify_line_item_id: item.id ? String(item.id) : null,
+              customer_name: customerName,
+              customer_email: order.customer?.email || order.email || "",
+              customer_location: location,
+              shipping_name: shippingName,
+              shipping_address1: order.shipping_address?.address1 || null,
+              shipping_address2: order.shipping_address?.address2 || null,
+              shipping_city: order.shipping_address?.city || null,
+              shipping_province:
+                order.shipping_address?.province_code || order.shipping_address?.province || null,
+              shipping_postal_code: order.shipping_address?.zip || null,
+              shipping_country_code: order.shipping_address?.country_code || null,
+              shipping_country: order.shipping_address?.country || null,
+              shipping_phone: order.shipping_address?.phone || null,
+              race,
+              race_short: shortRace(race),
+              race_id: raceId || null,
+              route_verified: routeVerified,
+              time,
+              race_date: raceDate,
+              year,
+              size,
+              theme_key: theme,
+              status: "pending" as const,
+              price,
+              notes: metaNotes || null,
+              ordered_at: order.created_at || new Date().toISOString(),
+            });
+            posterIndex += 1;
+          }
+        }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const { error } = await supabaseAdmin.from("orders").upsert({
-          number,
-          shopify_order_id: String(order.id),
-          shopify_line_item_id: firstItem?.id ? String(firstItem.id) : null,
-          customer_name: customerName,
-          customer_email: order.customer?.email || order.email || "",
-          customer_location: location,
-          shipping_name: shippingName,
-          shipping_address1: order.shipping_address?.address1 || null,
-          shipping_address2: order.shipping_address?.address2 || null,
-          shipping_city: order.shipping_address?.city || null,
-          shipping_province: order.shipping_address?.province_code || order.shipping_address?.province || null,
-          shipping_postal_code: order.shipping_address?.zip || null,
-          shipping_country_code: order.shipping_address?.country_code || null,
-          shipping_country: order.shipping_address?.country || null,
-          shipping_phone: order.shipping_address?.phone || null,
-          race,
-          race_short: shortRace(race),
-          race_id: raceId || null,
-          route_verified: routeVerified,
-          time,
-          race_date: raceDate,
-          year,
-          size,
-          theme_key: theme,
-          status: "pending",
-          price,
-          notes: metaNotes || null,
-          ordered_at: order.created_at || new Date().toISOString(),
-        }, {
+        const { error } = await supabaseAdmin.from("orders").upsert(rows, {
           onConflict: "number",
         });
 

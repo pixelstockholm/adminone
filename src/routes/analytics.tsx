@@ -4,6 +4,7 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { statusOrder, statusLabel } from "@/lib/mock-data";
 import { PageHeader } from "@/components/page-header";
 import { listOrders } from "@/lib/orders.functions";
+import { formatSek } from "@/lib/currency";
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({ meta: [{ title: "Analytics · Racepace Admin" }] }),
@@ -33,9 +34,9 @@ function AnalyticsPage() {
       <PageHeader title="Analytics" description="Performance across the Racepace business." />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-        <Stat label="Revenue" value={`$${revenue.toLocaleString()}`} />
+        <Stat label="Revenue" value={formatSek(revenue)} />
         <Stat label="Orders" value={orderCount.toString()} />
-        <Stat label="Avg Order Value" value={`$${averageOrderValue.toFixed(2)}`} />
+        <Stat label="Avg Order Value" value={formatSek(averageOrderValue)} />
         <Stat
           label="In Production"
           value={String(statusCounts.find((s) => s.status === "production")?.count ?? 0)}
@@ -110,7 +111,7 @@ function AnalyticsPage() {
               <div className="text-sm">{r.race}</div>
               <div className="text-sm text-right tabular-nums">{r.count}</div>
               <div className="text-sm text-right tabular-nums font-medium">
-                ${r.revenue.toLocaleString()}
+                {formatSek(r.revenue)}
               </div>
               <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                 <div

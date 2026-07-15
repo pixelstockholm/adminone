@@ -24,6 +24,7 @@ import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
 import { toast } from "sonner";
 import { POSTER_FONT_STYLESHEET_URL } from "@/lib/poster-fonts";
+import { formatSek } from "@/lib/currency";
 
 export const Route = createFileRoute("/orders/$orderId")({
   head: ({ params }) => ({
@@ -283,7 +284,7 @@ function OrderDetail() {
               <Row icon={Ruler} label="Finish time" value={order.time} mono />
               <Row icon={Ruler} label="Size" value={order.size} />
               <Row icon={Palette} label="Theme" value={order.theme.name} />
-              <Row icon={Ruler} label="Price" value={`$${order.price}`} />
+              <Row icon={Ruler} label="Price" value={formatSek(order.price)} />
               {typeof order.routeVerified === "boolean" && (
                 <Row
                   icon={Check}

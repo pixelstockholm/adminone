@@ -7,6 +7,7 @@ import { listOrders } from "@/lib/orders.functions";
 import { OrderPoster } from "@/components/poster-preview";
 import { StatusBadge } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
+import { formatSek } from "@/lib/currency";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -110,7 +111,7 @@ function OrdersPage() {
             <div>
               <StatusBadge status={o.status} />
             </div>
-            <div className="text-sm text-right tabular-nums font-medium">${o.price}</div>
+            <div className="text-sm text-right tabular-nums font-medium">{formatSek(o.price)}</div>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition" />
           </Link>
         ))}

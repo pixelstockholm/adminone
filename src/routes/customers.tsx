@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { listOrders } from "@/lib/orders.functions";
+import { formatSek } from "@/lib/currency";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({ meta: [{ title: "Customers · Racepace Admin" }] }),
@@ -69,7 +70,7 @@ function CustomersPage() {
             <div className="text-sm text-muted-foreground truncate">{c.email}</div>
             <div className="text-sm text-muted-foreground truncate">{c.location}</div>
             <div className="text-sm text-right tabular-nums">{c.orders}</div>
-            <div className="text-sm text-right tabular-nums font-medium">${c.spent}</div>
+            <div className="text-sm text-right tabular-nums font-medium">{formatSek(c.spent)}</div>
           </div>
         ))}
       </div>
