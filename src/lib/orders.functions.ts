@@ -41,6 +41,7 @@ type DbOrder = {
 
 const PRINT_FILES_BUCKET = "print-files";
 const PRINT_FILE_NAME = "preview-300dpi.png";
+const PRINT_FILE_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 async function requireAdmin(gateToken?: string) {
   const [{ getSession }, { getSessionConfig, verifyGateToken }] = await Promise.all([
@@ -94,7 +95,7 @@ async function requireProductionPng(orderId: string) {
 
   const { data: signedFile, error: signedFileError } = await supabaseAdmin.storage
     .from(PRINT_FILES_BUCKET)
-    .createSignedUrl(path, 60 * 60);
+    .createSignedUrl(path, PRINT_FILE_URL_TTL_SECONDS);
   if (signedFileError || !signedFile?.signedUrl) {
     throw new Error(
       `Could not create production PNG download URL: ${signedFileError?.message || "Unknown error"}`,
@@ -232,6 +233,7 @@ function buildProdigiPayload(row: DbOrder, printFileUrl: string) {
   return {
     shippingMethod: process.env.PRODIGI_SHIPPING_METHOD || "standard",
     merchantReference: row.number,
+    idempotencyKey: row.id,
     recipient: {
       name: shipping.name,
       email: shipping.email,
@@ -374,9 +376,7 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const endpoint = process.env.PRINT_PROVIDER_ENDPOINT;
-    const isSandbox = endpoint
-      ? new URL(endpoint).hostname === "api.sandbox.prodigi.com"
-      : false;
+    const isSandbox = endpoint ? new URL(endpoint).hostname === "api.sandbox.prodigi.com" : false;
     const update =
       data.status === "approved" && isSandbox
         ? {
@@ -387,10 +387,7 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
             production_sent_at: null,
           }
         : { status: data.status };
-    const { error } = await supabaseAdmin
-      .from("orders")
-      .update(update)
-      .eq("id", data.id);
+    const { error } = await supabaseAdmin.from("orders").update(update).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
